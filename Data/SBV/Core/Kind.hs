@@ -22,7 +22,6 @@ import qualified Data.Generics as G (Data(..), DataType, dataTypeName, dataTypeO
 import Data.Int
 import Data.Word
 import Data.SBV.Core.AlgReals
-import Data.SBV.Core.Sequence
 
 -- | Kind of symbolic value
 data Kind = KBool
@@ -184,10 +183,6 @@ instance HasKind AlgReal where kindOf _ = KReal
 instance HasKind Float   where kindOf _ = KFloat
 instance HasKind Double  where kindOf _ = KDouble
 instance HasKind Char    where kindOf _ = KChar
-instance HasKind String  where kindOf _ = KString
--- TODO: also Text / ByteString?
-instance HasKind a => HasKind (Sequence a) where
-  kindOf _ = KSequence (kindOf (undefined :: a))
 
 instance HasKind Kind where
   kindOf = id

@@ -65,9 +65,9 @@ import Data.SBV.String (isInfixOf, charToStr)
 -- Q.E.D.
 elem :: SChar -> SString -> SBool
 c `elem` s
- | Just cs <- unliteral s, Just cc <- unliteral c
+ | Just cs <- unliteralList s, Just cc <- unliteral c
  = literal (cc `P.elem` cs)
- | Just cs <- unliteral s                            -- If only the second string is concrete, element-wise checking is still much better!
+ | Just cs <- unliteralList s                            -- If only the second string is concrete, element-wise checking is still much better!
  = bAny (c .==) $ map literal cs
  | True
  = charToStr c `isInfixOf` s
@@ -293,7 +293,7 @@ isAsciiLetter c = isAsciiUpper c ||| isAsciiLower c
 -- >>> prove $ \c -> isAsciiUpper c <=> isAscii c &&& isUpper c
 -- Q.E.D.
 isAsciiUpper :: SChar -> SBool
-isAsciiUpper = (`elem` literal ['A' .. 'Z'])
+isAsciiUpper = (`elem` literalList ['A' .. 'Z'])
 
 -- | Is this an ASCII Lower-case letter? i.e., @a@ thru @z@
 --
@@ -302,4 +302,4 @@ isAsciiUpper = (`elem` literal ['A' .. 'Z'])
 -- >>> prove $ \c -> isAsciiLower c <=> isAscii c &&& isLower c
 -- Q.E.D.
 isAsciiLower :: SChar -> SBool
-isAsciiLower = (`elem` literal ['a' .. 'z'])
+isAsciiLower = (`elem` literalList ['a' .. 'z'])

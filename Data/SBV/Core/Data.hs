@@ -50,6 +50,7 @@ module Data.SBV.Core.Data
  , declNewSArray, declNewSFunArray
  , OptimizeStyle(..), Penalty(..), Objective(..)
  , QueryState(..), Query(..), SMTProblem(..)
+ , genMkSymVar, genVar, genVar_
  ) where
 
 import GHC.Generics (Generic)
@@ -68,7 +69,6 @@ import System.Random
 import Data.SBV.Core.AlgReals
 import Data.SBV.Core.Kind
 import Data.SBV.Core.Concrete
-import Data.SBV.Core.Sequence
 import Data.SBV.Core.Symbolic
 import Data.SBV.Core.Operations
 
@@ -147,7 +147,7 @@ type SChar = SBV Char
 -- and internally processed as one unit as opposed to a fixed-length list of characters.
 type SString = SBV String
 
-type SSequence a = SBV (Sequence a)
+type SSequence a = SBV [a]
 
 -- | Not-A-Number for 'Double' and 'Float'. Surprisingly, Haskell
 -- Prelude doesn't have this value defined, so we provide it here.
@@ -247,6 +247,19 @@ sbvToSW st (SBV s) = svToSW st s
 -------------------------------------------------------------------------
 -- * Symbolic Computations
 -------------------------------------------------------------------------
+
+-- | Generate a finite symbolic bitvector, named
+genVar :: Maybe Quantifier -> Kind -> String -> Symbolic (SBV a)
+genVar q k = mkSymSBV q k . Just
+
+-- | Generate a finite symbolic bitvector, unnamed
+genVar_ :: Maybe Quantifier -> Kind -> Symbolic (SBV a)
+genVar_ q k = mkSymSBV q k Nothing
+
+-- | Generically make a symbolic var
+genMkSymVar :: Kind -> Maybe Quantifier -> Maybe String -> Symbolic (SBV a)
+genMkSymVar k mbq Nothing  = genVar_ mbq k
+genMkSymVar k mbq (Just s) = genVar  mbq k s
 
 -- | Create a symbolic variable.
 mkSymSBV :: forall a. Maybe Quantifier -> Kind -> Maybe String -> Symbolic (SBV a)
@@ -370,6 +383,26 @@ class (HasKind a, Ord a) => SymWord a where
   -- | One stop allocator
   mkSymWord :: Maybe Quantifier -> Maybe String -> Symbolic (SBV a)
 
+  literalList   :: [a] -> SBV [a]
+  unliteralList :: SBV [a] -> Maybe [a]
+  symbolicList  :: String -> Symbolic (SBV [a])
+  symbolicLists :: [String] -> Symbolic [SBV [a]]
+  freeList      :: String -> Symbolic (SBV [a])
+  freeList_     :: Symbolic (SBV [a])
+  forallList    :: String -> Symbolic (SBV [a])
+  forallList_   :: Symbolic (SBV [a])
+  existsList    :: String -> Symbolic (SBV [a])
+  existsList_   :: Symbolic (SBV [a])
+
+  symbolicList  = mkSequenceSymWord Nothing . Just
+  symbolicLists = mapM symbolicList
+  freeList      = mkSequenceSymWord Nothing . Just
+  freeList_     = mkSequenceSymWord Nothing   Nothing
+  forallList    = mkSequenceSymWord (Just ALL) . Just
+  forallList_   = mkSequenceSymWord (Just ALL)   Nothing
+  existsList    = mkSequenceSymWord (Just EX) . Just
+  existsList_   = mkSequenceSymWord (Just EX)   Nothing
+
   -- minimal complete definition:: Nothing.
   -- Giving no instances is ok when defining an uninterpreted/enumerated sort, but otherwise you really
   -- want to define: literal, fromCW, mkSymWord
@@ -401,6 +434,18 @@ class (HasKind a, Ord a) => SymWord a where
                             _        -> Nothing
               in SBV $ SVal k (Left (CW k (CWUserSort (mbIdx, sx))))
 
+  default literalList :: SymWord a => [a] -> SBV [a]
+  literalList as =
+    let k = KSequence (kindOf (undefined :: a))
+        toCWVal a = case literal a of
+          SBV (SVal _ (Left (CW _ cwval))) -> cwval
+          _                                -> error "SymWord.Sequence: could not produce a concrete word for value"
+    in SBV $ SVal k $ Left $ CW k $ CWSequence $ toCWVal <$> as
+
+  default unliteralList :: SymWord a => SBV [a] -> Maybe [a]
+  unliteralList (SBV (SVal _ (Left c)))  = Just $ fromCWSequence c
+  unliteralList _                        = Nothing
+
   default fromCW :: Read a => CW -> a
   fromCW (CW _ (CWUserSort (_, s))) = read s
   fromCW cw                         = error $ "Cannot convert CW " ++ show cw ++ " to kind " ++ show (kindOf (undefined :: a))
@@ -408,6 +453,15 @@ class (HasKind a, Ord a) => SymWord a where
   default mkSymWord :: (Read a, G.Data a) => Maybe Quantifier -> Maybe String -> Symbolic (SBV a)
   mkSymWord mbQ mbNm = SBV <$> (ask >>= liftIO . svMkSymVar mbQ k mbNm)
     where k = constructUKind (undefined :: a)
+
+mkSequenceSymWord :: forall a. SymWord a => Maybe Quantifier -> Maybe String -> Symbolic (SBV [a])
+mkSequenceSymWord = genMkSymVar (KSequence (kindOf (undefined :: a)))
+
+fromCWSequence :: forall a. SymWord a => CW -> [a]
+fromCWSequence  (CW _ (CWSequence a))
+  = fromCW . CW (kindOf (undefined :: a)) <$> a
+fromCWSequence  c
+  = error $ "SymWord.Sequence: Unexpected non-sequence value: " ++ show c
 
 instance (Random a, SymWord a) => Random (SBV a) where
   randomR (l, h) g = case (unliteral l, unliteral h) of

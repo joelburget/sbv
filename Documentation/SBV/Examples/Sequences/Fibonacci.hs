@@ -41,5 +41,5 @@ main = do
                case cs of
                  Unk   -> error "Solver returned unknown!"
                  Unsat -> error "No example found"
-                 Sat   -> getValue fibs
-  print (fibs :: Sequence Integer)
+                 Sat   -> getValues fibs
+  print (fibs :: [Integer])

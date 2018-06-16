@@ -58,7 +58,6 @@ Library
                   , Data.SBV.Internals
                   , Data.SBV.String
                   , Data.SBV.Sequence
-                  , Data.SBV.Sequence.Internal
                   , Data.SBV.Char
                   , Data.SBV.RegExp
                   , Data.SBV.Tools.CodeGen
@@ -127,7 +126,6 @@ Library
                   , Data.SBV.Core.Model
                   , Data.SBV.Core.Operations
                   , Data.SBV.Core.Floating
-                  , Data.SBV.Core.Sequence
                   , Data.SBV.Core.Splittable
                   , Data.SBV.Core.Symbolic
                   , Data.SBV.Control.Query

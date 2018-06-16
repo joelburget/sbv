@@ -24,7 +24,7 @@
 
 module Data.SBV.Core.Model (
     Mergeable(..), EqSymbolic(..), OrdSymbolic(..), SDivisible(..), Uninterpreted(..), Metric(..), assertSoft, SIntegral, SFiniteBits(..)
-  , ite, iteLazy, sFromIntegral, sShiftLeft, sShiftRight, sRotateLeft, sRotateRight, sSignedShiftArithRight, (.^)
+  , ite, iteL, iteLazy, sFromIntegral, sShiftLeft, sShiftRight, sRotateLeft, sRotateRight, sSignedShiftArithRight, (.^)
   , oneIf, genVar, genVar_, forall, forall_, exists, exists_
   , pbAtMost, pbAtLeast, pbExactly, pbLe, pbGe, pbEq, pbMutexed, pbStronglyMutexed
   , sBool, sBools, sWord8, sWord8s, sWord16, sWord16s, sWord32
@@ -63,7 +63,6 @@ import qualified Test.QuickCheck.Monadic as QC (monadicIO, run, assert, pre, mon
 
 import Data.SBV.Core.AlgReals
 import Data.SBV.Core.Data
-import Data.SBV.Core.Sequence
 import Data.SBV.Core.Symbolic
 import Data.SBV.Core.Operations
 
@@ -74,14 +73,6 @@ import Data.SBV.Utils.Boolean
 
 -- Symbolic-Word class instances
 
--- | Generate a finite symbolic bitvector, named
-genVar :: Maybe Quantifier -> Kind -> String -> Symbolic (SBV a)
-genVar q k = mkSymSBV q k . Just
-
--- | Generate a finite symbolic bitvector, unnamed
-genVar_ :: Maybe Quantifier -> Kind -> Symbolic (SBV a)
-genVar_ q k = mkSymSBV q k Nothing
-
 -- | Generate a finite constant bitvector
 genLiteral :: Integral a => Kind -> a -> SBV b
 genLiteral k = SBV . SVal k . Left . mkConstCW k
@@ -90,11 +81,6 @@ genLiteral k = SBV . SVal k . Left . mkConstCW k
 genFromCW :: Integral a => CW -> a
 genFromCW (CW _ (CWInteger x)) = fromInteger x
 genFromCW c                    = error $ "genFromCW: Unsupported non-integral value: " ++ show c
-
--- | Generically make a symbolic var
-genMkSymVar :: Kind -> Maybe Quantifier -> Maybe String -> Symbolic (SBV a)
-genMkSymVar k mbq Nothing  = genVar_ mbq k
-genMkSymVar k mbq (Just s) = genVar  mbq k s
 
 -- | Base type of () allows simple construction for uninterpreted types.
 instance SymWord ()
@@ -181,24 +167,10 @@ instance SymWord Double where
   -- and in the presence of NaN's it would be incorrect to do any optimization
   isConcretely _ _ = False
 
-instance SymWord String where
-  mkSymWord = genMkSymVar KString
-  literal   = SBV . SVal KString . Left . CW KString . CWString
-  fromCW (CW _ (CWString a)) = a
-  fromCW c                   = error $ "SymWord.String: Unexpected non-string value: " ++ show c
-
-instance SymWord a => SymWord (Sequence a) where
-  mkSymWord = genMkSymVar (KSequence (kindOf (undefined :: a)))
-  literal (Sequence as)  =
-    let k = KSequence (kindOf (undefined :: a))
-        toCWVal a = case literal a of
-          SBV (SVal _ (Left (CW _ cwval))) -> cwval
-          _                                -> error "SymWord.Sequence: could not produce a concrete word for value"
-    in SBV $ SVal k $ Left $ CW k $ CWSequence $ toCWVal <$> as
-  fromCW  (CW _ (CWSequence a))
-    = Sequence (fromCW . CW (kindOf (undefined :: a)) <$> a)
-  fromCW  c
-    = error $ "SymWord.Sequence: Unexpected non-sequence value: " ++ show c
+fromCWString :: CW -> String
+fromCWString  (CW _ (CWString a)) = a
+fromCWString  c
+  = error $ "SymWord.Sequence: Unexpected non-sequence value: " ++ show c
 
 instance SymWord Char where
   mkSymWord = genMkSymVar KChar
@@ -206,8 +178,13 @@ instance SymWord Char where
   fromCW (CW _ (CWChar a)) = a
   fromCW c                 = error $ "SymWord.String: Unexpected non-char value: " ++ show c
 
+  literalList   = SBV . SVal KString . Left . CW KString . CWString
+
+  unliteralList (SBV (SVal _ (Left c)))  = Just $ fromCWString c
+  unliteralList _                        = Nothing
+
 instance IsString SString where
-  fromString = literal
+  fromString = literalList
 
 ------------------------------------------------------------------------------------
 -- * Smart constructors for creating symbolic values. These are not strictly
@@ -324,7 +301,7 @@ sChar = symbolic
 
 -- | Declare an 'SString'
 sString :: String -> Symbolic SString
-sString = symbolic
+sString = symbolicList
 
 -- | Declare a list of 'SChar's
 sChars :: [String] -> Symbolic [SChar]
@@ -332,15 +309,18 @@ sChars = symbolics
 
 -- | Declare a list of 'SString's
 sStrings :: [String] -> Symbolic [SString]
-sStrings = symbolics
+sStrings = symbolicLists
+
+-- symbolicSequence :: SymWord a => String -> Symbolic (SBV [a])
+-- symbolicSequence = mkSequenceSymWord Nothing . Just
 
 -- | Declare an 'SSequence'
 sSequence :: SymWord a => String -> Symbolic (SSequence a)
-sSequence = symbolic
+sSequence = symbolicList
 
 -- | Declare a list of 'SSequence's
 sSequences :: SymWord a => [String] -> Symbolic [SSequence a]
-sSequences = symbolics
+sSequences = symbolicLists
 
 -- | Convert an SReal to an SInteger. That is, it computes the
 -- largest integer @n@ that satisfies @sIntegerToSReal n <= r@
@@ -1338,6 +1318,11 @@ ite :: Mergeable a => SBool -> a -> a -> a
 ite t a b
   | Just r <- unliteral t = if r then a else b
   | True                  = symbolicMerge True t a b
+
+iteL :: SymWord a => SBool -> SBV [a] -> SBV [a] -> SBV [a]
+iteL t a b = error "TODO(joel)"
+  -- | Just r <- unliteral t = if r then a else b
+  -- | True                  = symbolicMerge True t a b
 
 -- | A Lazy version of ite, which does not force its arguments. This might
 -- cause issues for symbolic simulation with large thunks around, so use with

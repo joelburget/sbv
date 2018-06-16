@@ -21,7 +21,7 @@
 
 module Data.SBV.Control.Utils (
        io
-     , ask, send, getValue, getUninterpretedValue, getValueCW, getUnsatAssumptions, SMTValue(..)
+     , ask, send, getValue, getValues, getUninterpretedValue, getValueCW, getUnsatAssumptions, SMTValue(..)
      , getQueryState, modifyQueryState, getConfig, getObjectives, getSBVAssertions, getSBVPgm, getQuantifiedInputs, getObservables
      , checkSat, checkSatUsing, getAllSatResult
      , inNewContext, freshVar, freshVar_
@@ -66,7 +66,6 @@ import Data.SBV.Core.Symbolic (IncState(..), withNewIncState, State(..), svToSW,
 
 import Data.SBV.Core.AlgReals   (mergeAlgReals)
 import Data.SBV.Core.Operations (svNot, svNotEqual, svOr)
-import Data.SBV.Core.Sequence   (Sequence(Sequence))
 
 import Data.SBV.SMT.SMTLib  (toIncSMTLib, toSMTLib)
 import Data.SBV.SMT.Utils   (showTimeoutValue, addAnnotations, alignPlain, debug, mergeSExpr, SMTException(..))
@@ -295,13 +294,22 @@ retrieveResponse userTag mbTo = do
 
 -- | A class which allows for sexpr-conversion to values
 class SMTValue a where
-  sexprToVal :: SExpr -> Maybe a
+  sexprToVal  :: SExpr -> Maybe a
+  sexprToVals :: SExpr -> Maybe [a]
 
   default sexprToVal :: Read a => SExpr -> Maybe a
   sexprToVal (ECon c) = case reads c of
                           [(v, "")] -> Just v
                           _         -> Nothing
   sexprToVal _        = Nothing
+
+  default sexprToVals :: Read a => SExpr -> Maybe [a]
+  sexprToVals (EApp [ECon "seq.++", l, r]) = do
+    (++) <$> sexprToVals l <*> sexprToVals r
+  sexprToVals (EApp [ECon "seq.unit", a]) = do
+    a' <- sexprToVal a
+    pure [a']
+  sexprToVals _        = Nothing
 
 -- | Integral values are easy to convert:
 fromIntegralToVal :: Integral a => SExpr -> Maybe a
@@ -338,25 +346,21 @@ instance SMTValue AlgReal where
    sexprToVal (ENum (v, _)) = Just (fromIntegral v)
    sexprToVal _             = Nothing
 
-instance SMTValue String where
-   sexprToVal (ECon s)
-     | length s >= 2 && head s == '"' && last s == '"'
-     = Just (tail (init s))
-   sexprToVal _        = Nothing
+   sexprToVals (EApp [ECon "seq.++", l, r]) = do
+     (++) <$> sexprToVals l <*> sexprToVals r
+   sexprToVals (EApp [ECon "seq.unit", a]) = do
+     a' <- sexprToVal a
+     pure [a']
+   sexprToVals _        = Nothing
 
 instance SMTValue Char where
    sexprToVal (ENum (i, _)) = Just (chr (fromIntegral i))
    sexprToVal _             = Nothing
 
-instance SMTValue a => SMTValue (Sequence a) where
-   sexprToVal (EApp [ECon "seq.++", l, r]) = do
-     Sequence l' <- sexprToVal l
-     Sequence r' <- sexprToVal r
-     pure $ Sequence $ l' ++ r'
-   sexprToVal (EApp [ECon "seq.unit", a]) = do
-     a' <- sexprToVal a
-     pure $ Sequence [a']
-   sexprToVal _        = Nothing
+   sexprToVals (ECon s)
+     | length s >= 2 && head s == '"' && last s == '"'
+     = Just (tail (init s))
+   sexprToVals _        = Nothing
 
 -- | Get the value of a term.
 getValue :: SMTValue a => SBV a -> Query a
@@ -369,6 +373,18 @@ getValue s = do sw <- inNewContext (`sbvToSW` s)
                                                                                  Nothing -> bad r Nothing
                                                                                  Just c  -> return c
                                     _                                       -> bad r Nothing
+
+-- | Get the value of a term.
+getValues :: SMTValue a => SBV [a] -> Query [a]
+getValues s = do sw <- inNewContext (`sbvToSW` s)
+                 let nm  = show sw
+                     cmd = "(get-value (" ++ nm ++ "))"
+                     bad = unexpected "getValues" cmd "a model value" Nothing
+                 r <- ask cmd
+                 parse r bad $ \case EApp [EApp [ECon o,  v]] | o == show sw -> case sexprToVals v of
+                                                                                  Nothing -> bad r Nothing
+                                                                                  Just c  -> return c
+                                     _                                       -> bad r Nothing
 
 -- | Get the value of an uninterpreted sort, as a String
 getUninterpretedValue :: HasKind a => SBV a -> Query String

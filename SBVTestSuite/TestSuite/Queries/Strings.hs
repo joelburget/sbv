@@ -38,7 +38,7 @@ queryString1 = do a <- sString "a"
                   constrain $ a `R.match` R.Loop 5 5 "xyz"
 
                   query $ do _ <- checkSat
-                             s <- getValue a
+                             s <- getValues a
                              if s == concat (replicate 5 "xyz")
                                 then return [s]
                                 else error $ "Didn't expect this: " ++ show s

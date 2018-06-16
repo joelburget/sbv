@@ -70,7 +70,7 @@ tests =
      ++ genCounts
      ++ genIntCasts
      ++ genChars
-     ++ genStrings
+     -- ++ genStrings
      )
 
 genBinTest :: Bool -> String -> (forall a. (Num a, Bits a) => a -> a -> a) -> [TestTree]
@@ -100,7 +100,7 @@ genBoolTest nm op opS = map mkTest $  [(show x, show y, mkThm2 x y (x `op` y)) |
                                    ++ [(show x, show y, mkThm2 x y (x `op` y)) | x <- i64s,      y <- i64s]
                                    ++ [(show x, show y, mkThm2 x y (x `op` y)) | x <- iUBs,      y <- iUBs]
                                    ++ [(show x, show y, mkThm2 x y (x `op` y)) | x <- reducedCS, y <- reducedCS]
-                                   ++ [(show x, show y, mkThm2 x y (x `op` y)) | x <- ss,        y <- ss, nm `elem` allowedStringComps]
+                                   -- ++ [(show x, show y, mkThm2 x y (x `op` y)) | x <- ss,        y <- ss, nm `elem` allowedStringComps]
   where -- Currently Z3 doesn't allow for string comparisons, so only test equals and distinct
         -- See: https://github.com/LeventErkok/sbv/issues/368 for tracking issue.
         allowedStringComps = ["==", "/="]
@@ -555,97 +555,97 @@ genChars = map mkTest $  [("ord",           show c, mkThm SC.ord           cord 
                                            constrain $ a .== literal arg
                                            return $ literal (cop arg) .== sop a
 
-genStrings :: [TestTree]
-genStrings = map mkTest1 (  [("length",        show s,                   mkThm1 SS.length        strLen        s      ) | s <- ss                                                       ]
-                         ++ [("null",          show s,                   mkThm1 SS.null          null          s      ) | s <- ss                                                       ]
-                         ++ [("head",          show s,                   mkThm1 SS.head          head          s      ) | s <- ss, not (null s)                                         ]
-                         ++ [("tail",          show s,                   mkThm1 SS.tail          tail          s      ) | s <- ss, not (null s)                                         ]
-                         ++ [("charToStr",     show c,                   mkThm1 SS.charToStr     (: [])        c      ) | c <- cs                                                       ]
-                         ++ [("implode",       show s,                   mkThmI SS.implode                     s      ) | s <- ss                                                       ]
-                         ++ [("strToNat",      show s,                   mkThm1 SS.strToNat      strToNat      s      ) | s <- ss                                                       ]
-                         ++ [("natToStr",      show i,                   mkThm1 SS.natToStr      natToStr      i      ) | i <- iUBs                                                     ])
-          ++ map mkTest2 (  [("strToStrAt",    show s, show i,           mkThm2 SS.strToStrAt    strToStrAt    s i    ) | s <- ss, i  <- range s                                        ]
-                         ++ [("strToCharAt",   show s, show i,           mkThm2 SS.strToCharAt   strToCharAt   s i    ) | s <- ss, i  <- range s                                        ]
-                         ++ [("concat",        show s, show s1,          mkThm2 SS.concat        (++)          s s1   ) | s <- ss, s1 <- ss                                             ]
-                         ++ [("isInfixOf",     show s, show s1,          mkThm2 SS.isInfixOf     isInfixOf     s s1   ) | s <- ss, s1 <- ss                                             ]
-                         ++ [("isSuffixOf",    show s, show s1,          mkThm2 SS.isSuffixOf    isSuffixOf    s s1   ) | s <- ss, s1 <- ss                                             ]
-                         ++ [("isPrefixOf",    show s, show s1,          mkThm2 SS.isPrefixOf    isPrefixOf    s s1   ) | s <- ss, s1 <- ss                                             ]
-                         ++ [("take",          show s, show i,           mkThm2 SS.take          genericTake   i s    ) | s <- ss, i <- iUBs                                            ]
-                         ++ [("drop",          show s, show i,           mkThm2 SS.drop          genericDrop   i s    ) | s <- ss, i <- iUBs                                            ]
-                         ++ [("indexOf",       show s, show s1,          mkThm2 SS.indexOf       indexOf       s s1   ) | s <- ss, s1 <- ss                                             ])
-          ++ map mkTest3 (  [("subStr",        show s, show  i, show j,  mkThm3 SS.subStr        subStr        s i  j ) | s <- ss, i  <- range s, j <- range s, i + j <= genericLength s]
-                         ++ [("replace",       show s, show s1, show s2, mkThm3 SS.replace       replace       s s1 s2) | s <- ss, s1 <- ss, s2 <- ss                                   ]
-                         ++ [("offsetIndexOf", show s, show s1, show i,  mkThm3 SS.offsetIndexOf offsetIndexOf s s1 i ) | s <- ss, s1 <- ss, i <- range s                               ])
-  where strLen :: String -> Integer
-        strLen = fromIntegral . length
+-- genStrings :: [TestTree]
+-- genStrings = map mkTest1 (  [("length",        show s,                   mkThm1 SS.length        strLen        s      ) | s <- ss                                                       ]
+--                          ++ [("null",          show s,                   mkThm1 SS.null          null          s      ) | s <- ss                                                       ]
+--                          ++ [("head",          show s,                   mkThm1 SS.head          head          s      ) | s <- ss, not (null s)                                         ]
+--                          ++ [("tail",          show s,                   mkThm1 SS.tail          tail          s      ) | s <- ss, not (null s)                                         ]
+--                          ++ [("charToStr",     show c,                   mkThm1 SS.charToStr     (: [])        c      ) | c <- cs                                                       ]
+--                          ++ [("implode",       show s,                   mkThmI SS.implode                     s      ) | s <- ss                                                       ]
+--                          ++ [("strToNat",      show s,                   mkThm1 SS.strToNat      strToNat      s      ) | s <- ss                                                       ]
+--                          ++ [("natToStr",      show i,                   mkThm1 SS.natToStr      natToStr      i      ) | i <- iUBs                                                     ])
+--              map mkTest2 (  [("strToStrAt",    show s, show i,           mkThm2 SS.strToStrAt    strToStrAt    s i    ) | s <- ss, i  <- range s                                        ]
+--                          ++ [("strToCharAt",   show s, show i,           mkThm2 SS.strToCharAt   strToCharAt   s i    ) | s <- ss, i  <- range s                                        ]
+--                          ++ [("concat",        show s, show s1,          mkThm2 SS.concat        (++)          s s1   ) | s <- ss, s1 <- ss                                             ]
+--                          ++ [("isInfixOf",     show s, show s1,          mkThm2 SS.isInfixOf     isInfixOf     s s1   ) | s <- ss, s1 <- ss                                             ]
+--                          ++ [("isSuffixOf",    show s, show s1,          mkThm2 SS.isSuffixOf    isSuffixOf    s s1   ) | s <- ss, s1 <- ss                                             ]
+--                          ++ [("isPrefixOf",    show s, show s1,          mkThm2 SS.isPrefixOf    isPrefixOf    s s1   ) | s <- ss, s1 <- ss                                             ]
+--                          ++ [("take",          show s, show i,           mkThm2 SS.take          genericTake   i s    ) | s <- ss, i <- iUBs                                            ]
+--                          ++ [("drop",          show s, show i,           mkThm2 SS.drop          genericDrop   i s    ) | s <- ss, i <- iUBs                                            ]
+--                          ++ [("indexOf",       show s, show s1,          mkThm2 SS.indexOf       indexOf       s s1   ) | s <- ss, s1 <- ss                                             ])
+--           ++ map mkTest3 (  [("subStr",        show s, show  i, show j,  mkThm3 SS.subStr        subStr        s i  j ) | s <- ss, i  <- range s, j <- range s, i + j <= genericLength s]
+--                          ++ [("replace",       show s, show s1, show s2, mkThm3 SS.replace       replace       s s1 s2) | s <- ss, s1 <- ss, s2 <- ss                                   ]
+--                          ++ [("offsetIndexOf", show s, show s1, show i,  mkThm3 SS.offsetIndexOf offsetIndexOf s s1 i ) | s <- ss, s1 <- ss, i <- range s                               ])
+--   where strLen :: String -> Integer
+--         strLen = fromIntegral . length
 
-        strToNat :: String -> Integer
-        strToNat s
-          | all C.isDigit s && not (null s) = read s
-          | True                            = -1
+--         strToNat :: String -> Integer
+--         strToNat s
+--           | all C.isDigit s && not (null s) = read s
+--           | True                            = -1
 
-        natToStr :: Integer -> String
-        natToStr i
-          | i >= 0 = show i
-          | True   = ""
+--         natToStr :: Integer -> String
+--         natToStr i
+--           | i >= 0 = show i
+--           | True   = ""
 
-        range :: String -> [Integer]
-        range s = map fromIntegral [0 .. length s - 1]
+--         range :: String -> [Integer]
+--         range s = map fromIntegral [0 .. length s - 1]
 
-        indexOf :: String -> String -> Integer
-        indexOf s1 s2 = go 0 s1
-          where go i x
-                 | s2 `isPrefixOf` x = i
-                 | True              = case x of
-                                          "" -> -1
-                                          (_:r) -> go (i+1) r
+--         indexOf :: String -> String -> Integer
+--         indexOf s1 s2 = go 0 s1
+--           where go i x
+--                  | s2 `isPrefixOf` x = i
+--                  | True              = case x of
+--                                           "" -> -1
+--                                           (_:r) -> go (i+1) r
 
-        strToStrAt :: String -> Integer -> String
-        s `strToStrAt` i = [s `strToCharAt` i]
+--         strToStrAt :: String -> Integer -> String
+--         s `strToStrAt` i = [s `strToCharAt` i]
 
-        strToCharAt :: String -> Integer -> Char
-        s `strToCharAt` i = s `genericIndex` i
+--         strToCharAt :: String -> Integer -> Char
+--         s `strToCharAt` i = s `genericIndex` i
 
-        subStr :: String -> Integer -> Integer -> String
-        subStr s i j = genericTake j (genericDrop i s)
+--         subStr :: String -> Integer -> Integer -> String
+--         subStr s i j = genericTake j (genericDrop i s)
 
-        replace :: String -> String -> String -> String
-        replace s "" y = y ++ s
-        replace s x  y = go s
-          where go "" = ""
-                go h@(c:rest) | x `isPrefixOf` h = y ++ drop (length x) h
-                              | True             = c : go rest
+--         replace :: String -> String -> String -> String
+--         replace s "" y = y ++ s
+--         replace s x  y = go s
+--           where go "" = ""
+--                 go h@(c:rest) | x `isPrefixOf` h = y ++ drop (length x) h
+--                               | True             = c : go rest
 
-        offsetIndexOf :: String -> String -> Integer -> Integer
-        offsetIndexOf x y i = case indexOf (genericDrop i x) y of
-                                -1 -> -1
-                                r  -> r+i
+--         offsetIndexOf :: String -> String -> Integer -> Integer
+--         offsetIndexOf x y i = case indexOf (genericDrop i x) y of
+--                                 -1 -> -1
+--                                 r  -> r+i
 
-        mkTest1 (nm, x, t)       = testCase ("genStrings-" ++ nm ++ "." ++ x)                         (assert t)
-        mkTest2 (nm, x, y, t)    = testCase ("genStrings-" ++ nm ++ "." ++ x ++ "_" ++ y)             (assert t)
-        mkTest3 (nm, x, y, z, t) = testCase ("genStrings-" ++ nm ++ "." ++ x ++ "_" ++ y ++ "_" ++ z) (assert t)
+--         mkTest1 (nm, x, t)       = testCase ("genStrings-" ++ nm ++ "." ++ x)                         (assert t)
+--         mkTest2 (nm, x, y, t)    = testCase ("genStrings-" ++ nm ++ "." ++ x ++ "_" ++ y)             (assert t)
+--         mkTest3 (nm, x, y, z, t) = testCase ("genStrings-" ++ nm ++ "." ++ x ++ "_" ++ y ++ "_" ++ z) (assert t)
 
-        mkThmI sop s = isTheorem $ do let v c = do sc <- free_
-                                                   constrain $ sc .== literal c
-                                                   return sc
-                                      vs <- mapM v s
-                                      return $ literal s .== sop vs
+--         mkThmI sop s = isTheorem $ do let v c = do sc <- free_
+--                                                    constrain $ sc .== literal c
+--                                                    return sc
+--                                       vs <- mapM v s
+--                                       return $ literal s .== sop vs
 
-        mkThm1 sop cop arg            = isTheorem $ do a <- free "a"
-                                                       constrain $ a .== literal arg
-                                                       return $ literal (cop arg) .== sop a
-        mkThm2 sop cop arg1 arg2      = isTheorem $ do a <- free "a"
-                                                       b <- free "b"
-                                                       constrain $ a .== literal arg1
-                                                       constrain $ b .== literal arg2
-                                                       return $ literal (cop arg1 arg2) .== sop a b
-        mkThm3 sop cop arg1 arg2 arg3 = isTheorem $ do a <- free "a"
-                                                       b <- free "b"
-                                                       c <- free "c"
-                                                       constrain $ a .== literal arg1
-                                                       constrain $ b .== literal arg2
-                                                       constrain $ c .== literal arg3
-                                                       return $ literal (cop arg1 arg2 arg3) .== sop a b c
+--         mkThm1 sop cop arg            = isTheorem $ do a <- free "a"
+--                                                        constrain $ a .== literalList arg
+--                                                        return $ literalList (cop arg) .== sop a
+--         mkThm2 sop cop arg1 arg2      = isTheorem $ do a <- free "a"
+--                                                        b <- free "b"
+--                                                        constrain $ a .== literal arg1
+--                                                        constrain $ b .== literal arg2
+--                                                        return $ literal (cop arg1 arg2) .== sop a b
+--         mkThm3 sop cop arg1 arg2 arg3 = isTheorem $ do a <- free "a"
+--                                                        b <- free "b"
+--                                                        c <- free "c"
+--                                                        constrain $ a .== literal arg1
+--                                                        constrain $ b .== literal arg2
+--                                                        constrain $ c .== literal arg3
+--                                                        return $ literal (cop arg1 arg2 arg3) .== sop a b c
 
 -- Concrete test data
 xsSigned, xsUnsigned :: (Num a, Bounded a) => [a]

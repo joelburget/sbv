@@ -31,8 +31,6 @@ import qualified Prelude as P
 
 import Data.SBV.Core.Data
 import Data.SBV.Core.Model
-import Data.SBV.Core.Sequence
-import Data.SBV.Sequence.Internal
 
 import Data.List (genericLength, genericIndex, genericDrop, genericTake)
 import qualified Data.List as L (tails, isSuffixOf, isPrefixOf, isInfixOf)
@@ -51,11 +49,11 @@ import qualified Data.List as L (tails, isSuffixOf, isPrefixOf, isInfixOf)
 --   s1 =    [3] :: [Char]
 --   s2 = [4, 5] :: [Char]
 infixr 5 .++
-(.++) :: SymWord a => SBV (Sequence a) -> SBV (Sequence a) -> SBV (Sequence a)
+(.++) :: SymWord a => SBV [a] -> SBV [a] -> SBV [a]
 (.++) = concat
 
 -- | Short cut for 'elemAt'
-(.!!) :: SymWord a => SBV (Sequence a) -> SInteger -> SBV a
+(.!!) :: SymWord a => SBV [a] -> SInteger -> SBV a
 (.!!) = elemAt
 
 -- | Length of a sequence.
@@ -63,7 +61,7 @@ infixr 5 .++
 -- >>> sat $ \s -> length s .== 2
 -- >>> sat $ \s -> length s .< 0
 length :: SymWord a => SSequence a -> SInteger
-length = lift1 (SeqOp SeqLen) (Just (fromIntegral . P.length))
+length = lift1l (SeqOp SeqLen) (Just (fromIntegral . P.length))
 
 -- | @`null` s@ is True iff the sequence is empty
 --
@@ -71,10 +69,10 @@ length = lift1 (SeqOp SeqLen) (Just (fromIntegral . P.length))
 -- >>> prove $ \s -> null s <=> s .== (literal [] :: SSequence Integer)
 null :: SymWord a => SSequence a -> SBool
 null s
-  | Just cs <- unliteral s
+  | Just cs <- unliteralList s
   = literal (P.null cs)
   | True
-  = s .== literal (Sequence [])
+  = s .== literalList []
 
 -- | @`head`@ returns the head of a sequence. Unspecified if the sequence is
 -- empty.
@@ -94,8 +92,8 @@ head = (`elemAt` 0)
 -- Q.E.D.
 tail :: SymWord a => SSequence a -> SSequence a
 tail s
- | Just (Sequence (_:cs)) <- unliteral s
- = literal (Sequence cs)
+ | Just (_:cs) <- unliteralList s
+ = literalList cs
  | True
  = subSeq s 1 (length s - 1)
 
@@ -107,8 +105,8 @@ tail s
 -- >>> prove $ \c -> length (elemToSeq c) .== 1
 -- Q.E.D.
 elemToSeq :: SymWord a => SBV a -> SSequence a
-elemToSeq = lift1 (SeqOp SeqUnit) (Just wrap)
-  where wrap c = Sequence [c]
+elemToSeq = lift1r (SeqOp SeqUnit) (Just wrap)
+  where wrap c = [c]
 
 -- | @`seqToSeqAt` s offset@. Subsequence of length 1 at @offset@ in @s@.
 -- Unspecified if index is out of bounds.
@@ -130,7 +128,7 @@ seqToSeqAt s offset = subSeq s offset 1
 -- Q.E.D.
 elemAt :: forall a. SymWord a => SSequence a -> SInteger -> SBV a
 elemAt s i
-  | Just (Sequence cs) <- unliteral s, Just ci <- unliteral i, ci >= 0, ci < genericLength cs, let c = cs `genericIndex` ci
+  | Just cs <- unliteralList s, Just ci <- unliteral i, ci >= 0, ci < genericLength cs, let c = cs `genericIndex` ci
   = literal c
   | True
   = SBV (SVal kElem (Right (cache (y (s `seqToSeqAt` i)))))
@@ -155,16 +153,13 @@ elemAt s i
 -- >>> prove $ \c1 c2 c3 -> map (strToCharAt (implode [c1, c2, c3])) (map literal [0 .. 2]) .== [c1, c2, c3]
 -- Q.E.D.
 implode :: SymWord a => [SBV a] -> SSequence a
-implode = foldr ((.++) . elemToSeq) (literal (Sequence []))
+implode = foldr ((.++) . elemToSeq) (literalList [])
 
 -- | Concatenate two sequences. See also `.++`.
 concat :: SymWord a => SSequence a -> SSequence a -> SSequence a
 concat x y | isConcretelyEmpty x = y
            | isConcretelyEmpty y = x
-           | True                = lift2 (SeqOp SeqConcat) (Just seqCat) x y
-  where
-    seqCat :: Sequence a -> Sequence a -> Sequence a
-    seqCat (Sequence xs) (Sequence ys) = Sequence (xs ++ ys)
+           | True                = lift2 (SeqOp SeqConcat) (Just (++)) x y
 
 -- | @`isInfixOf` sub s@. Does @s@ contain the subsequence @sub@?
 --
@@ -177,10 +172,7 @@ sub `isInfixOf` s
   | isConcretelyEmpty sub
   = literal True
   | True
-  = lift2 (SeqOp SeqContains) (Just (flip concreteInfixOf)) s sub -- NB. flip, since `SeqContains` takes args in rev order!
-
-concreteInfixOf :: Eq a => Sequence a -> Sequence a -> Bool
-concreteInfixOf (Sequence xs) (Sequence ys) = xs `L.isInfixOf ` ys
+  = lift2 (SeqOp SeqContains) (Just (flip L.isInfixOf)) s sub -- NB. flip, since `SeqContains` takes args in rev order!
 
 -- | @`isPrefixOf` pre s@. Is @pre@ a prefix of @s@?
 --
@@ -193,10 +185,7 @@ pre `isPrefixOf` s
   | isConcretelyEmpty pre
   = literal True
   | True
-  = lift2 (SeqOp SeqPrefixOf) (Just concretePrefixOf) pre s
-
-concretePrefixOf :: Eq a => Sequence a -> Sequence a -> Bool
-concretePrefixOf (Sequence xs) (Sequence ys) = xs `L.isPrefixOf ` ys
+  = lift2 (SeqOp SeqPrefixOf) (Just L.isPrefixOf) pre s
 
 -- | @`isSuffixOf` suf s@. Is @suf@ a suffix of @s@?
 --
@@ -209,18 +198,15 @@ suf `isSuffixOf` s
   | isConcretelyEmpty suf
   = literal True
   | True
-  = lift2 (SeqOp SeqSuffixOf) (Just concreteSuffixOf) suf s
-
-concreteSuffixOf :: Eq a => Sequence a -> Sequence a -> Bool
-concreteSuffixOf (Sequence xs) (Sequence ys) = xs `L.isSuffixOf ` ys
+  = lift2 (SeqOp SeqSuffixOf) (Just L.isSuffixOf) suf s
 
 -- | @`take` len s@. Corresponds to Haskell's `take` on symbolic-sequences.
 --
 -- >>> prove $ \s i -> i .>= 0 ==> length (take i s) .<= i
 -- Q.E.D.
 take :: SymWord a => SInteger -> SSequence a -> SSequence a
-take i s = ite (i .<= 0)        (literal (Sequence []))
-         $ ite (i .>= length s) s
+take i s = iteL (i .<= 0)        (literalList [])
+         $ iteL (i .>= length s) s
          $ subSeq s 0 i
 
 -- | @`drop` len s@. Corresponds to Haskell's `drop` on symbolic-sequences.
@@ -230,8 +216,8 @@ take i s = ite (i .<= 0)        (literal (Sequence []))
 -- >>> prove $ \s i -> take i s .++ drop i s .== s
 -- Q.E.D.
 drop :: SymWord a => SInteger -> SSequence a -> SSequence a
-drop i s = ite (i .>= ls) (literal (Sequence []))
-         $ ite (i .<= 0)  s
+drop i s = iteL (i .>= ls) (literalList [])
+         $ iteL (i .<= 0)  s
          $ subSeq s i (ls - i)
   where ls = length s
 
@@ -250,7 +236,7 @@ drop i s = ite (i .>= ls) (literal (Sequence []))
 -- Unsatisfiable
 subSeq :: SymWord a => SSequence a -> SInteger -> SInteger -> SSequence a
 subSeq s offset len
-  | Just (Sequence c) <- unliteral s                    -- a constant sequence
+  | Just c <- unliteralList s                    -- a constant sequence
   , Just o <- unliteral offset               -- a constant offset
   , Just l <- unliteral len                  -- a constant length
   , let lc = genericLength c                 -- length of the sequence
@@ -258,7 +244,7 @@ subSeq s offset len
   , valid o                                  -- offset is valid
   , l >= 0                                   -- length is not-negative
   , valid $ o + l                            -- we don't overrun
-  = literal $ Sequence $ genericTake l $ genericDrop o c
+  = literalList $ genericTake l $ genericDrop o c
   | True                                     -- either symbolic, or something is out-of-bounds
   = lift3 (SeqOp SeqExtract) Nothing s offset len
 
@@ -270,12 +256,12 @@ subSeq s offset len
 -- Q.E.D.
 replace :: SymWord a => SSequence a -> SSequence a -> SSequence a -> SSequence a
 replace s src dst
-  | Just b <- unliteral src, P.null b   -- If src is null, simply prepend
+  | Just b <- unliteralList src, P.null b   -- If src is null, simply prepend
   = dst .++ s
-  | Just (Sequence a) <- unliteral s
-  , Just (Sequence b) <- unliteral src
-  , Just (Sequence c) <- unliteral dst
-  = literal $ Sequence $ walk a b c
+  | Just a <- unliteralList s
+  , Just b <- unliteralList src
+  , Just c <- unliteralList dst
+  = literalList $ walk a b c
   | True
   = lift3 (SeqOp SeqReplace) Nothing s src dst
   where walk haystack needle newNeedle = go haystack   -- note that needle is guaranteed non-empty here.
@@ -309,10 +295,10 @@ indexOf s sub = offsetIndexOf s sub 0
 -- Q.E.D.
 offsetIndexOf :: SymWord a => SSequence a -> SSequence a -> SInteger -> SInteger
 offsetIndexOf s sub offset
-  | Just (Sequence c) <- unliteral s               -- a constant sequence
-  , Just (Sequence n) <- unliteral sub             -- a constant search pattern
-  , Just o            <- unliteral offset          -- at a constant offset
-  , o >= 0, o <= genericLength c        -- offset is good
+  | Just c <- unliteralList s        -- a constant sequence
+  , Just n <- unliteralList sub      -- a constant search pattern
+  , Just o <- unliteral offset   -- at a constant offset
+  , o >= 0, o <= genericLength c -- offset is good
   = case [i | (i, t) <- zip [o ..] (L.tails (genericDrop o c)), n `L.isPrefixOf` t] of
       (i:_) -> literal i
       _     -> -1
@@ -321,5 +307,62 @@ offsetIndexOf s sub offset
 
 -- | Is the sequence concretely known empty?
 isConcretelyEmpty :: SymWord a => SSequence a -> Bool
-isConcretelyEmpty ss | Just (Sequence s) <- unliteral ss = P.null s
-                     | True                              = False
+isConcretelyEmpty ss | Just s <- unliteralList ss = P.null s
+                     | True                   = False
+
+-- | Lift a unary operator over sequences.
+lift1l :: forall a b. (SymWord a, SymWord b) => Op -> Maybe ([a] -> b) -> SBV [a] -> SBV b
+lift1l w mbOp a
+  | Just cv <- concEval1 mbOp a
+  = cv
+  | True
+  = SBV $ SVal k $ Right $ cache r
+  where k = kindOf (undefined :: b)
+        r st = do swa <- sbvToSW st a
+                  newExpr st k (SBVApp w [swa])
+
+lift1r :: forall a b. (SymWord a, SymWord b) => Op -> Maybe (a -> [b]) -> SBV a -> SBV [b]
+lift1r = error "TODO(joel)"
+
+-- | Concrete evaluation for unary ops
+concEval1 :: (SymWord a, SymWord b) => Maybe ([a] -> b) -> SBV [a] -> Maybe (SBV b)
+concEval1 mbOp a = literal <$> (mbOp <*> unliteralList a)
+
+lift2 :: Op -> Maybe (a -> b -> c) -> SBV a -> SBV b -> SBV c
+lift2 = error "TODO(joel)"
+
+lift3 :: Op -> Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> SBV d
+lift3 = error "TODO(joel)"
+
+-- | Lift a binary operator over sequences.
+-- lift2 :: forall a b c. (SymWord a, SymWord b, SymWord c) => Op -> Maybe (a -> b -> c) -> SBV a -> SBV b -> SBV c
+-- lift2 w mbOp a b
+--   | Just cv <- concEval2 mbOp a b
+--   = cv
+--   | True
+--   = SBV $ SVal k $ Right $ cache r
+--   where k = kindOf (undefined :: c)
+--         r st = do swa <- sbvToSW st a
+--                   swb <- sbvToSW st b
+--                   newExpr st k (SBVApp w [swa, swb])
+
+-- -- | Lift a ternary operator over sequences.
+-- lift3 :: forall a b c d. (SymWord a, SymWord b, SymWord c, SymWord d) => Op -> Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> SBV d
+-- lift3 w mbOp a b c
+--   | Just cv <- concEval3 mbOp a b c
+--   = cv
+--   | True
+--   = SBV $ SVal k $ Right $ cache r
+--   where k = kindOf (undefined :: d)
+--         r st = do swa <- sbvToSW st a
+--                   swb <- sbvToSW st b
+--                   swc <- sbvToSW st c
+--                   newExpr st k (SBVApp w [swa, swb, swc])
+
+-- | Concrete evaluation for binary ops
+concEval2 :: (SymWord a, SymWord b, SymWord c) => Maybe (a -> b -> c) -> SBV a -> SBV b -> Maybe (SBV c)
+concEval2 mbOp a b = literal <$> (mbOp <*> unliteral a <*> unliteral b)
+
+-- | Concrete evaluation for ternary ops
+concEval3 :: (SymWord a, SymWord b, SymWord c, SymWord d) => Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> Maybe (SBV d)
+concEval3 mbOp a b c = literal <$> (mbOp <*> unliteral a <*> unliteral b <*> unliteral c)

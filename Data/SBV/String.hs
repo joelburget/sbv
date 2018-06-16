@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 
 -----------------------------------------------------------------------------
@@ -37,7 +39,6 @@ import qualified Prelude as P
 
 import Data.SBV.Core.Data
 import Data.SBV.Core.Model
-import Data.SBV.Sequence.Internal
 
 import qualified Data.Char as C
 import Data.List (genericLength, genericIndex, genericDrop, genericTake)
@@ -60,7 +61,7 @@ import qualified Data.List as L (tails, isSuffixOf, isPrefixOf, isInfixOf)
 -- >>> prove $ \s1 s2 -> length s1 + length s2 .== length (s1 .++ s2)
 -- Q.E.D.
 length :: SString -> SInteger
-length = lift1 (StrOp StrLen) (Just (fromIntegral . P.length))
+length = lift1S_ (StrOp StrLen) (Just (fromIntegral . P.length))
 
 -- | @`null` s@ is True iff the string is empty
 --
@@ -70,10 +71,10 @@ length = lift1 (StrOp StrLen) (Just (fromIntegral . P.length))
 -- Q.E.D.
 null :: SString -> SBool
 null s
-  | Just cs <- unliteral s
+  | Just cs <- unliteralList s
   = literal (P.null cs)
   | True
-  = s .== literal ""
+  = s .== literalList ""
 
 -- | @`head`@ returns the head of a string. Unspecified if the string is empty.
 --
@@ -92,8 +93,8 @@ head = (`strToCharAt` 0)
 -- Q.E.D.
 tail :: SString -> SString
 tail s
- | Just (_:cs) <- unliteral s
- = literal cs
+ | Just (_:cs) <- unliteralList s
+ = literalList cs
  | True
  = subStr s 1 (length s - 1)
 
@@ -105,7 +106,7 @@ tail s
 -- >>> prove $ \c -> length (charToStr c) .== 1
 -- Q.E.D.
 charToStr :: SChar -> SString
-charToStr = lift1 (StrOp StrUnit) (Just wrap)
+charToStr = lift1_S (StrOp StrUnit) (Just wrap)
   where wrap c = [c]
 
 -- | @`strToStrAt` s offset@. Substring of length 1 at @offset@ in @s@. Unspecified if
@@ -128,7 +129,7 @@ strToStrAt s offset = subStr s offset 1
 -- Q.E.D.
 strToCharAt :: SString -> SInteger -> SChar
 strToCharAt s i
-  | Just cs <- unliteral s, Just ci <- unliteral i, ci >= 0, ci < genericLength cs, let c = C.ord (cs `genericIndex` ci)
+  | Just cs <- unliteralList s, Just ci <- unliteral i, ci >= 0, ci < genericLength cs, let c = C.ord (cs `genericIndex` ci)
   = literal (C.chr c)
   | True
   = SBV (SVal w8 (Right (cache (y (s `strToStrAt` i)))))
@@ -219,8 +220,8 @@ suf `isSuffixOf` s
 -- >>> prove $ \s i -> i .>= 0 ==> length (take i s) .<= i
 -- Q.E.D.
 take :: SInteger -> SString -> SString
-take i s = ite (i .<= 0)        (literal "")
-         $ ite (i .>= length s) s
+take i s = iteL (i .<= 0)        (literalList "")
+         $ iteL (i .>= length s) s
          $ subStr s 0 i
 
 -- | @`drop` len s@. Corresponds to Haskell's `drop` on symbolic-strings.
@@ -230,8 +231,8 @@ take i s = ite (i .<= 0)        (literal "")
 -- >>> prove $ \s i -> take i s .++ drop i s .== s
 -- Q.E.D.
 drop :: SInteger -> SString -> SString
-drop i s = ite (i .>= ls) (literal "")
-         $ ite (i .<= 0)  s
+drop i s = iteL (i .>= ls) (literalList "")
+         $ iteL (i .<= 0)  s
          $ subStr s i (ls - i)
   where ls = length s
 
@@ -250,7 +251,7 @@ drop i s = ite (i .>= ls) (literal "")
 -- Unsatisfiable
 subStr :: SString -> SInteger -> SInteger -> SString
 subStr s offset len
-  | Just c <- unliteral s                    -- a constant string
+  | Just c <- unliteralList s                    -- a constant string
   , Just o <- unliteral offset               -- a constant offset
   , Just l <- unliteral len                  -- a constant length
   , let lc = genericLength c                 -- length of the string
@@ -258,7 +259,7 @@ subStr s offset len
   , valid o                                  -- offset is valid
   , l >= 0                                   -- length is not-negative
   , valid $ o + l                            -- we don't overrun
-  = literal $ genericTake l $ genericDrop o c
+  = literalList $ genericTake l $ genericDrop o c
   | True                                     -- either symbolic, or something is out-of-bounds
   = lift3 (StrOp StrSubstr) Nothing s offset len
 
@@ -270,12 +271,12 @@ subStr s offset len
 -- Q.E.D.
 replace :: SString -> SString -> SString -> SString
 replace s src dst
-  | Just b <- unliteral src, P.null b   -- If src is null, simply prepend
+  | Just b <- unliteralList src, P.null b   -- If src is null, simply prepend
   = dst .++ s
-  | Just a <- unliteral s
-  , Just b <- unliteral src
-  , Just c <- unliteral dst
-  = literal $ walk a b c
+  | Just a <- unliteralList s
+  , Just b <- unliteralList src
+  , Just c <- unliteralList dst
+  = literalList $ walk a b c
   | True
   = lift3 (StrOp StrReplace) Nothing s src dst
   where walk haystack needle newNeedle = go haystack   -- note that needle is guaranteed non-empty here.
@@ -309,8 +310,8 @@ indexOf s sub = offsetIndexOf s sub 0
 -- Q.E.D.
 offsetIndexOf :: SString -> SString -> SInteger -> SInteger
 offsetIndexOf s sub offset
-  | Just c <- unliteral s               -- a constant string
-  , Just n <- unliteral sub             -- a constant search pattern
+  | Just c <- unliteralList s               -- a constant string
+  , Just n <- unliteralList sub             -- a constant search pattern
   , Just o <- unliteral offset          -- at a constant offset
   , o >= 0, o <= genericLength c        -- offset is good
   = case [i | (i, t) <- zip [o ..] (L.tails (genericDrop o c)), n `L.isPrefixOf` t] of
@@ -328,12 +329,12 @@ offsetIndexOf s sub offset
 -- Q.E.D.
 strToNat :: SString -> SInteger
 strToNat s
- | Just a <- unliteral s
+ | Just a <- unliteralList s
  = if all C.isDigit a && not (P.null a)
    then literal (read a)
    else -1
  | True
- = lift1 (StrOp StrStrToNat) Nothing s
+ = lift1S_ (StrOp StrStrToNat) Nothing s
 
 -- | @`natToStr` i@. Retrieve string encoded by integer @i@ (ground rewriting only).
 -- Again, only naturals are supported, any input that is not a natural number
@@ -345,11 +346,66 @@ strToNat s
 natToStr :: SInteger -> SString
 natToStr i
  | Just v <- unliteral i
- = literal $ if v >= 0 then show v else ""
+ = literalList $ if v >= 0 then show v else ""
  | True
- = lift1 (StrOp StrNatToStr) Nothing i
+ = lift1_S (StrOp StrNatToStr) Nothing i
 
 -- | Is the string concretely known empty?
 isConcretelyEmpty :: SString -> Bool
-isConcretelyEmpty ss | Just s <- unliteral ss = P.null s
-                     | True                   = False
+isConcretelyEmpty ss | Just s <- unliteralList ss = P.null s
+                     | True                       = False
+
+lift1S_ :: forall a. SymWord a => Op -> Maybe (String -> a) -> SBV String -> SBV a
+lift1S_ w mbOp a
+  | Just cv <- concEval1S mbOp a
+  = cv
+  | True
+  = SBV $ SVal k $ Right $ cache r
+  where k = kindOf (undefined :: a)
+        r st = do swa <- sbvToSW st a
+                  newExpr st k (SBVApp w [swa])
+
+lift1_S :: forall a. SymWord a => Op -> Maybe (a -> String) -> SBV a -> SBV String
+lift1_S w mbOp a = error "TODO(joel)"
+
+concEval1S :: SymWord a => Maybe (String -> a) -> SBV String -> Maybe (SBV a)
+concEval1S mbOp a = literal <$> (mbOp <*> unliteralList a)
+
+lift2 :: Op -> Maybe (a -> b -> c) -> SBV a -> SBV b -> SBV c
+lift2 = error "TODO(joel)"
+
+-- -- | Lift a binary operator over sequences.
+-- lift2 :: forall a b c. (SymWord a, SymWord b, SymWord c) => Op -> Maybe (a -> b -> c) -> SBV a -> SBV b -> SBV c
+-- lift2 w mbOp a b
+--   | Just cv <- concEval2 mbOp a b
+--   = cv
+--   | True
+--   = SBV $ SVal k $ Right $ cache r
+--   where k = kindOf (undefined :: c)
+--         r st = do swa <- sbvToSW st a
+--                   swb <- sbvToSW st b
+--                   newExpr st k (SBVApp w [swa, swb])
+
+lift3 :: Op -> Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> SBV d
+lift3 = error "TODO(joel)"
+
+-- -- | Lift a ternary operator over sequences.
+-- lift3 :: forall a b c d. (SymWord a, SymWord b, SymWord c, SymWord d) => Op -> Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> SBV d
+-- lift3 w mbOp a b c
+--   | Just cv <- concEval3 mbOp a b c
+--   = cv
+--   | True
+--   = SBV $ SVal k $ Right $ cache r
+--   where k = kindOf (undefined :: d)
+--         r st = do swa <- sbvToSW st a
+--                   swb <- sbvToSW st b
+--                   swc <- sbvToSW st c
+--                   newExpr st k (SBVApp w [swa, swb, swc])
+
+-- | Concrete evaluation for binary ops
+concEval2 :: (SymWord a, SymWord b, SymWord c) => Maybe (a -> b -> c) -> SBV a -> SBV b -> Maybe (SBV c)
+concEval2 mbOp a b = literal <$> (mbOp <*> unliteral a <*> unliteral b)
+
+-- | Concrete evaluation for ternary ops
+concEval3 :: (SymWord a, SymWord b, SymWord c, SymWord d) => Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> Maybe (SBV d)
+concEval3 mbOp a b c = literal <$> (mbOp <*> unliteral a <*> unliteral b <*> unliteral c)

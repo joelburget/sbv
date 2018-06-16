@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  TestSuite.Basics.Sequence
@@ -43,13 +44,21 @@ checkWith cfg props csExpected = runSMTWith cfg{verbose=True} $ do
                        Unk   -> getUnknownReason >>= \r -> error $ "Failed! Expected Unsat, got UNK:\n" ++ show r
 
 seqConcatSat :: Symbolic ()
-seqConcatSat = constrain $ literal (Sequence [1,2,3] :: Sequence Integer) .++ literal (Sequence [4,5,6] :: Sequence Integer) .== literal (Sequence [1..6] :: Sequence Integer)
+seqConcatSat = constrain $
+      literalList @Integer [1,2,3] .++ literalList [4,5,6]
+  .== literalList @Integer [1..6]
 
 seqConcatUnsat :: Symbolic ()
-seqConcatUnsat = constrain $ literal (Sequence [1,2,3] :: Sequence Integer) .++ literal (Sequence [4,5,6] :: Sequence Integer) .== literal (Sequence [1..7] :: Sequence Integer)
+seqConcatUnsat = constrain $
+      literalList @Integer [1,2,3] .++ literalList [4,5,6]
+  .== literalList @Integer [1..7]
 
 seqIndexOfSat :: Symbolic ()
-seqIndexOfSat = constrain $ S.indexOf (literal (Sequence [1,2,3,1,2,3] :: Sequence Integer)) (literal (Sequence [1])) .== 0
+seqIndexOfSat = constrain $
+      S.indexOf (literalList @Integer [1,2,3,1,2,3]) (literalList [1])
+  .== (0 :: SInteger)
 
 seqIndexOfUnsat :: Symbolic ()
-seqIndexOfUnsat = constrain $ S.indexOf (literal (Sequence [1,2,3,1,2,3] :: Sequence Integer)) (literal (Sequence [1])) ./= 0
+seqIndexOfUnsat = constrain $
+      S.indexOf (literalList @Integer [1,2,3,1,2,3]) (literalList [1])
+  ./= (0 :: SInteger)

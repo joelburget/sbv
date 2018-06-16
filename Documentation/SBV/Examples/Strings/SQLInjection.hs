@@ -44,8 +44,8 @@ type M = StateT (SFunArray String String) (WriterT [SString] Symbolic)
 eval :: SQLExpr -> M SString
 eval (Query q)         = do q' <- eval q
                             tell [q']
-                            lift $ lift exists_
-eval (Const str)       = return $ literal str
+                            lift $ lift existsList_
+eval (Const str)       = return $ literalList str
 eval (Concat e1 e2)    = (.++) <$> eval e1 <*> eval e2
 eval (ReadVar nm)      = do n   <- eval nm
                             arr <- get
@@ -125,7 +125,7 @@ findInjection expr = runSMT $ do
     -- value my_topicid only, and undefined for all other variables
     undef      <- sString "uninitialized"
     let env :: SFunArray String String
-        env = mkSFunArray $ \varName -> ite (varName .== "my_topicid") badTopic undef
+        env = mkSFunArray $ \varName -> iteL (varName .== "my_topicid") badTopic undef
 
     (_, queries) <- runWriterT (evalStateT (eval expr) env)
 
@@ -136,4 +136,4 @@ findInjection expr = runSMT $ do
                case cs of
                  Unk   -> error "Solver returned unknown!"
                  Unsat -> error "No exploits are found"
-                 Sat   -> getValue badTopic
+                 Sat   -> getValues badTopic

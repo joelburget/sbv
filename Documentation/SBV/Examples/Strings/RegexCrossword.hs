@@ -28,7 +28,7 @@ solveCrossword rowRegExps colRegExps = runSMT $ do
             numCols = genericLength colRegExps
 
         -- constrain rows
-        let mkRow rowRegExp = do row <- free_
+        let mkRow rowRegExp = do row <- freeList_
                                  constrain $ row `R.match` rowRegExp
                                  constrain $ S.length row .== literal numCols
                                  return row
@@ -36,7 +36,7 @@ solveCrossword rowRegExps colRegExps = runSMT $ do
         rows <- mapM mkRow rowRegExps
 
         -- constrain colums
-        let mkCol colRegExp = do col <- free_
+        let mkCol colRegExp = do col <- freeList_
                                  constrain $ col `R.match` colRegExp
                                  constrain $ S.length col .== literal numRows
                                  return col
@@ -54,7 +54,7 @@ solveCrossword rowRegExps colRegExps = runSMT $ do
                    case cs of
                      Unk   -> error "Solver returned unknown!"
                      Unsat -> error "There are no solutions to this puzzle!"
-                     Sat   -> mapM getValue rows
+                     Sat   -> mapM getValues rows
 
 -- | Solve <http://regexcrossword.com/challenges/intermediate/puzzles/1>
 --

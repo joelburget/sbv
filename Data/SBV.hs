@@ -147,7 +147,7 @@ module Data.SBV (
   , SChar, SString
   -- ** Sequences
   -- $sequenes
-  , Sequence(..), SSequence
+  , SSequence
   -- * Arrays of symbolic values
   , SymArray(..), SArray, SFunArray, mkSFunArray
 
@@ -163,7 +163,7 @@ module Data.SBV (
   -- * Symbolic Equality and Comparisons
   , EqSymbolic(..), OrdSymbolic(..), Equality(..)
   -- * Conditionals: Mergeable values
-  , Mergeable(..), ite, iteLazy
+  , Mergeable(..), ite, iteL, iteLazy
 
   -- * Symbolic integral numbers
   , SIntegral
@@ -295,7 +295,6 @@ import Data.SBV.Core.AlgReals
 import Data.SBV.Core.Data
 import Data.SBV.Core.Model
 import Data.SBV.Core.Floating
-import Data.SBV.Core.Sequence (Sequence(..))
 import Data.SBV.Core.Splittable
 
 import Data.SBV.Provers.Prover
