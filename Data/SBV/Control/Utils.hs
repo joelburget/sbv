@@ -393,6 +393,10 @@ instance (SMTValue a, Typeable a) => SMTValue [a] where
                                                            return $ l' ++ r'
    sexprToVal (EApp [ECon "seq.unit", a])             = do a' <- sexprToVal a
                                                            return [a']
+   sexprToVal (ECon "nil")                            = return []
+   sexprToVal (EApp [ECon "cons", a, b])              = do a' <- sexprToVal a
+                                                           b' <- sexprToVal b
+                                                           return $ a' : b'
    sexprToVal (EApp [ECon "as", ECon "seq.empty", _]) = return []
 
    sexprToVal _                                       = Nothing

@@ -326,11 +326,16 @@ cwToSMTLib rm x
         negIf False a = a
 
         smtLibSeq :: Kind -> [CWVal] -> String
-        smtLibSeq k          [] = "(as seq.empty " ++ smtType k ++ ")"
-        smtLibSeq (KList ek) xs = let mkSeq  [e]   = e
-                                      mkSeq  es    = "(seq.++ " ++ unwords es ++ ")"
-                                      mkUnit inner = "(seq.unit " ++ inner ++ ")"
-                                  in mkSeq (mkUnit . cwToSMTLib rm . CW ek <$> xs)
+        -- smtLibSeq k          [] = "(as seq.empty " ++ smtType k ++ ")"
+        smtLibSeq k          [] = "nil"
+        smtLibSeq (KList ek) xs = foldr
+          (\a b -> "(cons " ++ a ++ " " ++ b ++ ")")
+          "nil"
+          (cwToSMTLib rm . CW ek <$> xs)
+                                  -- let mkSeq  [e]   = e
+                                  --     mkSeq  es    = "(seq.++ " ++ unwords es ++ ")"
+                                  --     mkUnit inner = "(seq.unit " ++ inner ++ ")"
+                                  -- in mkSeq (mkUnit . cwToSMTLib rm . CW ek <$> xs)
         smtLibSeq k _ = error "SBV.cwToSMTLib: Impossible case (smtLibSeq), received kind: " ++ show k
 
         -- anamoly at the 2's complement min value! Have to use binary notation here

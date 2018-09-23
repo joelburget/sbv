@@ -69,7 +69,7 @@ smtType KFloat          = "(_ FloatingPoint  8 24)"
 smtType KDouble         = "(_ FloatingPoint 11 53)"
 smtType KString         = "String"
 smtType KChar           = "(_ BitVec 8)"
-smtType (KList k)       = "(Seq " ++ smtType k ++ ")"
+smtType (KList k)       = "(SbvList " ++ smtType k ++ ")"
 smtType (KUserSort s _) = s
 
 instance Eq  G.DataType where

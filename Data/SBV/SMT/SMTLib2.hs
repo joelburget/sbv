@@ -111,6 +111,11 @@ cvt kindInfo isSat comments (inputs, trackerVars) skolemInps consts tbls arrs ui
 
         pgm  =  map ("; " ++) comments
              ++ settings
+             ++ [ "(declare-datatypes (T) ((SbvList (nil) (cons (head T) (tail SbvList)))))" | hasList ]
+             ++ [ "(declare-fun sum    ((SbvList Int))            Int)" | hasList ]
+             ++ [ "(declare-fun len    ((SbvList Int))            Int)" | hasList ]
+             ++ [ "(assert (forall ((xs (SbvList Int))) (= (len xs) (ite (= xs nil) 0 (+ 1 (len (tail xs)))))))" | hasList ]
+             ++ [ "(assert (forall ((xs (SbvList Int))) (= (sum xs) (ite (= nil xs) 0 (+ (head xs) (sum (tail xs)))))))" | hasList ]
              ++ [ "; --- uninterpreted sorts ---" ]
              ++ concatMap declSort usorts
              ++ [ "; --- literal constants ---" ]
@@ -760,6 +765,12 @@ cvtExp caps rm skolemMap tableMap expr@(SBVApp _ arguments) = sh expr
                                , (GreaterThan, seqCmp True  "seq.<")
                                , (LessEq,      seqCmp False "seq.<=")
                                , (GreaterEq,   seqCmp True  "seq.<=")
+                               , (ListOp ListHead,   lift1 "head" True) -- TODO what's True?
+                               , (ListOp ListTail,   lift1 "tail" True)
+                               -- , (ListOp ListNil,    \_ -> "nil")
+                               , (ListOp ListCons,   lift2 "cons" True)
+                               , (ListOp ListLength, lift1 "len" True)
+                               , (ListOp ListSum,    lift1 "sum" True)
                                ]
 
 -----------------------------------------------------------------------------------------------

@@ -27,7 +27,7 @@
 module Data.SBV.Core.Symbolic
   ( NodeId(..)
   , SW(..), swKind, trueSW, falseSW
-  , Op(..), PBOp(..), OvOp(..), FPOp(..), StrOp(..), SeqOp(..), RegExp(..)
+  , Op(..), PBOp(..), OvOp(..), FPOp(..), StrOp(..), SeqOp(..), ListOp(..), RegExp(..)
   , Quantifier(..), needsExistentials
   , RoundingMode(..)
   , SBVType(..), svUninterpreted, newUninterpreted, addAxiom
@@ -156,6 +156,7 @@ data Op = Plus
         | OverflowOp    OvOp                    -- Overflow-ops, categorized separately
         | StrOp StrOp                           -- String ops, categorized separately
         | SeqOp SeqOp                           -- Sequence ops, categorized separately
+        | ListOp ListOp
         deriving (Eq, Ord)
 
 -- | Floating point operations
@@ -334,6 +335,22 @@ instance Show StrOp where
   -- Note the breakage here with respect to argument order. We fix this explicitly later.
   show (StrInRe s) = "str.in.re " ++ show s
 
+data ListOp = ListHead
+            | ListTail
+            | ListNil
+            | ListCons
+            | ListLength
+            | ListSum
+            deriving (Eq, Ord)
+
+instance Show ListOp where
+  show ListHead   = "head"
+  show ListTail   = "tail"
+  show ListNil    = "nil"
+  show ListCons   = "cons"
+  show ListLength = "len"
+  show ListSum    = "sum"
+
 -- | Sequence operations.
 data SeqOp = SeqConcat    -- ^ See StrConcat
            | SeqLen       -- ^ See StrLen
@@ -379,6 +396,7 @@ instance Show Op where
   show (OverflowOp o)    = show o
   show (StrOp s)         = show s
   show (SeqOp s)         = show s
+  show (ListOp s)        = show s
   show op
     | Just s <- op `lookup` syms = s
     | True                       = error "impossible happened; can't find op!"
