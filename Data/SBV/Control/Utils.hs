@@ -823,7 +823,7 @@ executeQuery queryContext (Query userQuery) = do
                         (userInps, _) <- readIORef (rinps st)
                         let badInps = reverse [n | (ALL, (_, n)) <- userInps]
                         case badInps of
-                          [] -> return ()
+                          _ -> return ()
                           _  -> let plu | length badInps > 1 = "s require"
                                         | True               = " requires"
                                 in error $ unlines [ ""
