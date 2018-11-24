@@ -46,11 +46,12 @@ module Data.SBV.Internals (
   -- * Defining new metrics
   , addSValOptGoal
 
+  , svToSW
   ) where
 
 import Data.SBV.Core.Data
 import Data.SBV.Core.Model      (genLiteral, genFromCW, genMkSymVar, liftQRem, liftDMod)
-import Data.SBV.Core.Symbolic   (IStage(..), addSValOptGoal, registerKind)
+import Data.SBV.Core.Symbolic   (IStage(..), addSValOptGoal, registerKind, svToSW)
 
 import Data.SBV.Compilers.C       (compileToC', compileToCLib')
 import Data.SBV.Compilers.CodeGen
