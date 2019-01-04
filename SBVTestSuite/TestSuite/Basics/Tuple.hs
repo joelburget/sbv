@@ -16,7 +16,6 @@ module TestSuite.Basics.Tuple(tests)  where
 
 import           Control.Monad          (unless)
 
-import           Data.SBV               (HList)
 import           Data.SBV.Control
 import qualified Data.SBV.List          as L
 import           Data.SBV.Tuple
@@ -29,7 +28,6 @@ tests =
       goldenCapturedIO "tupleSwap"     $ \rf -> checkWith z3{redirectVerbose=Just rf} tupleSwapSat    Sat
     , goldenCapturedIO "tupleSwap2"    $ \rf -> checkWith z3{redirectVerbose=Just rf} tupleSwapSat2   Sat
     , goldenCapturedIO "twoTwoTuples"  $ \rf -> checkWith z3{redirectVerbose=Just rf} twoTwoTuples    Sat
-    , goldenCapturedIO "hlist"         $ \rf -> checkWith z3{redirectVerbose=Just rf} hlist           Sat
     , goldenCapturedIO "nested"        $ \rf -> checkWith z3{redirectVerbose=Just rf} nested          Sat
     , goldenCapturedIO "list"          $ \rf -> checkWith z3{redirectVerbose=Just rf} list            Sat
     ]
@@ -62,14 +60,6 @@ twoTwoTuples = do
   cd <- sTuple @(Char,    Word8)  "cd"
   constrain $ field1 ab .== 1
   constrain $ field1 cd .== literal 'c'
-
-hlist :: Symbolic ()
-hlist = do
-  abcd <- sTuple @(HList [Integer, String, Char, Word8]) "abcd"
-  constrain $ field1 abcd .== 1
-  constrain $ field2 abcd .== literal "foo"
-  constrain $ field3 abcd .== literal 'c'
-  constrain $ field4 abcd .== 0
 
 nested :: Symbolic ()
 nested = do

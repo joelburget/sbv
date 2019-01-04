@@ -379,6 +379,46 @@ instance (SMTValue a, Typeable a) => SMTValue [a] where
 
    sexprToVal _                                       = Nothing
 
+instance (SMTValue a, SMTValue b) => SMTValue (a, b) where
+  sexprToVal (EApp [ECon "mk-tup-2", a, b])
+    = (,) <$> sexprToVal a <*> sexprToVal b
+  sexprToVal _
+    = Nothing
+
+instance (SMTValue a, SMTValue b, SMTValue c) => SMTValue (a, b, c) where
+  sexprToVal (EApp [ECon "mk-tup-3", a, b, c])
+    = (,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c
+  sexprToVal _
+    = Nothing
+
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d)
+  => SMTValue (a, b, c, d) where
+  sexprToVal (EApp [ECon "mk-tup-4", a, b, c, d])
+    = (,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d
+  sexprToVal _
+    = Nothing
+
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e)
+  => SMTValue (a, b, c, d, e) where
+  sexprToVal (EApp [ECon "mk-tup-5", a, b, c, d, e])
+    = (,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e
+  sexprToVal _
+    = Nothing
+
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f)
+  => SMTValue (a, b, c, d, e, f) where
+  sexprToVal (EApp [ECon "mk-tup-6", a, b, c, d, e, f])
+    = (,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f
+  sexprToVal _
+    = Nothing
+
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f, SMTValue g)
+  => SMTValue (a, b, c, d, e, f, g) where
+  sexprToVal (EApp [ECon "mk-tup-7", a, b, c, d, e, f, g])
+    = (,,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f <*> sexprToVal g
+  sexprToVal _
+    = Nothing
+
 -- | Generalization of 'Data.SBV.Control.getValue'
 getValue :: (MonadIO m, MonadQuery m, SMTValue a) => SBV a -> m a
 getValue s = do sw <- inNewContext (`sbvToSW` s)
