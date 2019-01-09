@@ -14,6 +14,7 @@ module Data.SBV.Tuple (
     Nat(..), SNat(..)
   -- * Field access
   , field, field1, field2, field3, field4, field5, field6, field7, field8
+  , mkPair
   ) where
 
 import Data.SBV.Core.Data hiding (StrOp(..))
@@ -132,6 +133,19 @@ field8
      )
   => SBV tup -> SBV a
 field8 = field $ SS $ SS $ SS $ SS $ SS $ SS $ SS SZ
+
+mkPair :: forall a b. (SymWord a, SymWord b) => SBV a -> SBV b -> SBV (a, b)
+mkPair a b
+  | Just a' <- unliteral a
+  , Just b' <- unliteral b
+  = literal (a', b')
+  | otherwise
+  = SBV (SVal kElem (Right (cache y)))
+  where kElem = kindOf (undefined :: a, undefined :: b)
+        y st = do
+          swa <- svToSW st $ unSBV a
+          swb <- svToSW st $ unSBV b
+          newExpr st kElem (SBVApp (TupleConstructor 2) [swa, swb])
 
 symbolicFieldAccess :: forall a tup. HasKind a => Int -> SBV tup -> SBV a
 symbolicFieldAccess n tup
