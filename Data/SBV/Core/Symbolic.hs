@@ -396,6 +396,7 @@ instance Show Op where
   show (OverflowOp o)       = show o
   show (StrOp s)            = show s
   show (SeqOp s)            = show s
+  show (TupleConstructor 0) = "tup-0"
   show (TupleConstructor n) = "mk-tup-" ++ show n
   show (TupleAccess      i) = "proj-" ++ show i
   show op

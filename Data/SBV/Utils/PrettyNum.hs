@@ -333,6 +333,7 @@ cwToSMTLib rm x
         smtLibSeq k _ = error "SBV.cwToSMTLib: Impossible case (smtLibSeq), received kind: " ++ show k
 
         smtLibTup :: Kind -> [CWVal] -> String
+        smtLibTup (KTuple []) [] = "tup-0"
         smtLibTup (KTuple tys) vals =
           let cvtField ty val = cwToSMTLib rm (CW ty val)
               fields = zipWith cvtField tys vals

@@ -380,8 +380,8 @@ instance (SMTValue a, Typeable a) => SMTValue [a] where
    sexprToVal _                                       = Nothing
 
 instance SMTValue () where
-  sexprToVal (EApp [ECon "mk-tup-0"]) = pure ()
-  sexprToVal _                        = Nothing
+  sexprToVal (EApp [ECon "tup-0"]) = pure ()
+  sexprToVal _                     = Nothing
 
 instance (SMTValue a, SMTValue b) => SMTValue (a, b) where
   sexprToVal (EApp [ECon "mk-tup-2", a, b])

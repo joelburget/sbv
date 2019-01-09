@@ -293,6 +293,7 @@ declSort (s, Right fs) = [ "(declare-datatypes () ((" ++ s ++ " " ++ unwords (ma
 --   ((tup-2 (mk-tup-2 (proj-1 T1) (proj-2 T2)))))
 -- @
 declTuple :: Int -> String
+declTuple 0 = "(declare-datatypes () ((tup-0 (tup-0))))"
 declTuple arity =
   let (args, fields) = unzip $ fmap
         (\i -> ("T" ++ show i, "(proj-" ++ show i ++ " T" ++ show i ++ ")"))
@@ -696,6 +697,7 @@ cvtExp caps rm skolemMap tableMap expr@(SBVApp _ arguments) = sh expr
 
         sh (SBVApp (SeqOp op) args) = "(" ++ show op ++ " " ++ unwords (map ssw args) ++ ")"
 
+        sh (SBVApp (TupleConstructor 0) []) = "tup-0"
         sh (SBVApp (TupleConstructor n) args) = "(mk-tup-" ++ show n ++ " " ++ unwords (map ssw args) ++ ")"
         sh (SBVApp (TupleAccess n) [tup]) = "(proj-" ++ show n ++ " " ++ ssw tup ++ ")"
 
