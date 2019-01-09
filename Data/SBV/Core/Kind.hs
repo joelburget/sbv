@@ -21,7 +21,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans    #-}
 
-module Data.SBV.Core.Kind (HList(..), Kind(..), HasKind(..), constructUKind, smtType) where
+module Data.SBV.Core.Kind (HList(..), Kind(..), HasKind(..), constructUKind, smtType, allKindsOf) where
 
 import qualified Data.Generics as G (Data(..), DataType, dataTypeName, dataTypeOf, tyconUQname, dataTypeConstrs, constrFields)
 
@@ -30,6 +30,8 @@ import Data.Word
 import Data.SBV.Core.AlgReals
 
 import Data.List (isPrefixOf, intercalate)
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Data.Typeable (Typeable)
 
@@ -48,6 +50,16 @@ data Kind = KBool
           | KList Kind
           | KTuple [ Kind ]
           deriving (Eq, Ord)
+
+-- | Find all the kinds making up a kind. This is important when we have nested kinds. Example:
+--
+-- >>> allKindsOf (KTuple [ KList KBool, KChar ])
+-- Set.fromList [KBool, KChar, KList KBool, KTuple [KList KBool, KChar]]
+allKindsOf :: Kind -> Set Kind
+allKindsOf k = case k of
+  KTuple kinds -> Set.insert k $ Set.unions $ allKindsOf <$> kinds
+  KList kind   -> Set.insert k $ allKindsOf kind
+  _            -> Set.singleton k
 
 -- | A heterogeneous list (a sequence of values of different types).
 data family HList (l :: [*])

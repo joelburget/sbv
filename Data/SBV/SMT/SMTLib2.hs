@@ -25,11 +25,12 @@ import qualified Data.Set             as Set
 
 import Data.SBV.Core.Data
 import Data.SBV.Core.Symbolic (QueryContext(..))
-import Data.SBV.Core.Kind (smtType)
+import Data.SBV.Core.Kind (smtType, allKindsOf)
 import Data.SBV.SMT.Utils
 import Data.SBV.Control.Types
 
 import Data.SBV.Utils.PrettyNum (smtRoundingMode, cwToSMTLib)
+
 
 tbd :: String -> a
 tbd e = error $ "SBV.SMTLib2: Not-yet-supported: " ++ e
@@ -306,7 +307,10 @@ allTupleArities :: Set Kind -> [Int]
 allTupleArities ks
   = Set.toList
   $ Set.map length
-  $ Set.fromList [ tupKs | KTuple tupKs <- Set.toList ks ]
+  $ Set.fromList
+    [ tupKs
+    | KTuple tupKs <- Set.toList $ Set.unions $ Set.toList $ Set.map allKindsOf ks
+    ]
 
 -- | Convert in a query context
 cvtInc :: Bool -> SMTLibIncConverter [String]
