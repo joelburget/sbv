@@ -30,6 +30,8 @@ tests =
     , goldenCapturedIO "twoTwoTuples"  $ \rf -> checkWith z3{redirectVerbose=Just rf} twoTwoTuples    Sat
     , goldenCapturedIO "nested"        $ \rf -> checkWith z3{redirectVerbose=Just rf} nested          Sat
     , goldenCapturedIO "list"          $ \rf -> checkWith z3{redirectVerbose=Just rf} list            Sat
+    , goldenCapturedIO "unit"          $ \rf -> checkWith z3{redirectVerbose=Just rf} unit            Sat
+    , goldenCapturedIO "makePair"      $ \rf -> checkWith z3{redirectVerbose=Just rf} makePair        Sat
     ]
 
 checkWith :: SMTConfig -> Symbolic () -> CheckSatResult -> IO ()
@@ -74,3 +76,16 @@ list = do
   lst <- sList @(Integer, [(Integer, String)]) "lst"
   constrain $ field1 (L.elemAt lst 0) .== 2
   constrain $ field2 (L.elemAt (field2 (L.elemAt lst 1)) 1) .== literal "foo"
+
+unit :: Symbolic ()
+unit = do
+  x <- sTuple @() "x"
+  y <- sTuple @() "y"
+  constrain $ x .== y
+
+makePair :: Symbolic ()
+makePair = do
+  [x, y] <- sIntegers ["x", "y"]
+  let xy = mkPair x y
+  constrain $ field1 xy + field2 xy .== 0
+

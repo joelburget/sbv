@@ -103,10 +103,6 @@ genMkSymVar :: MonadSymbolic m => Kind -> Maybe Quantifier -> Maybe String -> m 
 genMkSymVar k mbq Nothing  = genVar_ mbq k
 genMkSymVar k mbq (Just s) = genVar  mbq k s
 
--- | Base type of () allows simple construction for uninterpreted types.
-instance SymWord ()
-instance HasKind ()
-
 instance SymWord Bool where
   mkSymWord  = genMkSymVar KBool
   literal x  = SBV (svBool x)
@@ -257,6 +253,9 @@ class HListable tup where
 coerceTup :: SBV (HList (HListTy tup)) -> SBV tup
 coerceTup (SBV x) = SBV x
 
+instance HasKind () where
+   kindOf = kindOf . toHList
+
 instance (HasKind a, HasKind b) => HasKind (a, b) where
    kindOf = kindOf . toHList
 
@@ -289,6 +288,11 @@ instance HListable (HList l) where
   type HListTy (HList l) = l
   toHList   = id
   fromHList = id
+
+instance HListable () where
+  type HListTy () = '[]
+  toHList () = HNil
+  fromHList HNil = ()
 
 instance HListable (a, b) where
   type HListTy (a, b) = [a, b]
@@ -326,6 +330,11 @@ instance HListable (a, b, c, d, e, f, g, h) where
     = a :% b :% c :% d :% e :% f :% g :% h :% HNil
   fromHList (a :% b :% c :% d :% e :% f :% g :% h :% HNil)
     = (a, b, c, d, e, f, g, h)
+
+instance SymWord () where
+  mkSymWord x y = coerceTup <$> mkSymWord x y
+  literal       = coerceTup . literal . toHList
+  fromCW        = fromHList . fromCW
 
 instance (SymWord a, SymWord b) => SymWord (a, b) where
   mkSymWord x y = coerceTup <$> mkSymWord x y
