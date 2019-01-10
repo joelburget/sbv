@@ -43,6 +43,8 @@ module Data.SBV.Core.Model (
   )
   where
 
+import Debug.Trace
+
 import Control.Applicative    (ZipList(ZipList))
 import Control.Monad          (when, unless, mplus)
 import Control.Monad.IO.Class (MonadIO)
@@ -241,7 +243,8 @@ instance (Typeable xs, SymWord x, SymWord (HList xs)) => SymWord (HList (x ': xs
       _ -> error "SymWord.literal: Cannot construct a literal value!"
     _ -> error "SymWord.literal: Cannot construct a literal value!"
 
-  fromCW (CW (KTuple (k:ks)) (CWTuple (x:xs))) =
+  fromCW (CW tup1@(KTuple (k:ks)) tup2@(CWTuple (x:xs))) =
+    trace ("fromCW HList tup1: " ++ show tup1 ++ ", tup2: " ++ show tup2) $
     fromCW (CW k x) :% fromCW (CW (KTuple ks) (CWTuple xs))
   fromCW c = error $ "SymWord.fromCW: Unexpected non-:% value: " ++ show c
 
@@ -336,10 +339,13 @@ instance SymWord () where
   literal       = coerceTup . literal . toHList
   fromCW        = fromHList . fromCW
 
+traceLabel :: Show a => String -> a -> a
+traceLabel msg a = trace (msg ++ " " ++ show a) a
+
 instance (SymWord a, SymWord b) => SymWord (a, b) where
   mkSymWord x y = coerceTup <$> mkSymWord x y
   literal       = coerceTup . literal . toHList
-  fromCW        = fromHList . fromCW
+  fromCW        = fromHList . fromCW . traceLabel "fromCW (a, b)"
 
 instance (SymWord a, SymWord b, SymWord c) => SymWord (a, b, c) where
   mkSymWord x y = coerceTup <$> mkSymWord x y

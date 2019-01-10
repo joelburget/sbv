@@ -23,6 +23,8 @@ import Data.SBV.Core.Data hiding (StrOp(..))
 import Data.SBV.Core.Symbolic (svToSW)
 import Data.SBV.Core.Model (HListable(..))
 
+import Debug.Trace
+
 -- | Natural numbers. These are used as an (type-level) index into a tuple or
 -- @HList@.
 data Nat = Z | S Nat
@@ -55,7 +57,7 @@ field
      )
   => SNat n -> SBV tup -> SBV a
 field n tup
-  | Just a <- fromIndex n . toHList <$> unliteral tup
+  | Just a <- fromIndex n . toHList <$> unliteral (trace ("field unliteral " ++ show tup) tup)
   = literal a
   | True
   = symbolicFieldAccess (sNatToInt n + 1) tup

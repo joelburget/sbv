@@ -36,6 +36,7 @@ data CWVal = CWAlgReal  !AlgReal              -- ^ algebraic real
            | CWList     ![CWVal]              -- ^ list
            | CWUserSort !(Maybe Int, String)  -- ^ value of an uninterpreted/user kind. The Maybe Int shows index position for enumerations
            | CWTuple    ![CWVal]              -- ^ tuple
+           deriving Show
 
 -- | Assing a rank to CW Values, this is structural and helps with ordering
 cwRank :: CWVal -> Int

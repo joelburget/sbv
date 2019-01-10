@@ -57,6 +57,7 @@ module Data.SBV.Core.Data
  ) where
 
 import GHC.Stack
+import Debug.Trace
 
 import GHC.Generics (Generic)
 import GHC.Exts     (IsList(..))
@@ -492,7 +493,7 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
 
   -- | Extract a literal, if the value is concrete
   unliteral :: HasCallStack => SBV a -> Maybe a
-  unliteral (SBV (SVal _ (Left c)))  = Just $ fromCW c
+  unliteral (SBV (SVal _ (Left c)))  = Just $ fromCW $ trace ("unliteral (SBV (SVal _ (Left " ++ show c ++ ")))") c
   unliteral _                        = Nothing
 
   -- | Is the symbolic word concrete?
