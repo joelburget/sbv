@@ -17,6 +17,8 @@ module Data.SBV.Tuple (
   , mkPair
   ) where
 
+import GHC.Stack
+
 import Data.SBV.Core.Data hiding (StrOp(..))
 import Data.SBV.Core.Symbolic (svToSW)
 import Data.SBV.Core.Model (HListable(..))
@@ -49,6 +51,7 @@ field
   :: forall tup a n.
      ( HListable tup, SymWord tup, SymWord a
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SNat n -> SBV tup -> SBV a
 field n tup
@@ -67,6 +70,7 @@ field1
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'Z
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field1 = field SZ
@@ -76,6 +80,7 @@ field2
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S 'Z
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field2 = field $ SS SZ
@@ -85,6 +90,7 @@ field3
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S ('S 'Z)
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field3 = field $ SS $ SS SZ
@@ -94,6 +100,7 @@ field4
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S ('S ('S 'Z))
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field4 = field $ SS $ SS $ SS SZ
@@ -103,6 +110,7 @@ field5
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S ('S ('S ('S 'Z)))
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field5 = field $ SS $ SS $ SS $ SS SZ
@@ -112,6 +120,7 @@ field6
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S ('S ('S ('S ('S 'Z))))
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field6 = field $ SS $ SS $ SS $ SS $ SS SZ
@@ -121,6 +130,7 @@ field7
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S ('S ('S ('S ('S ('S 'Z)))))
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field7 = field $ SS $ SS $ SS $ SS $ SS $ SS SZ
@@ -130,6 +140,7 @@ field8
   :: ( HListable tup, SymWord tup, SymWord a
      , n ~ 'S ('S ('S ('S ('S ('S ('S 'Z))))))
      , IndexType n (HListTy tup), TheResult n (HListTy tup) ~ a
+     , HasCallStack
      )
   => SBV tup -> SBV a
 field8 = field $ SS $ SS $ SS $ SS $ SS $ SS $ SS SZ

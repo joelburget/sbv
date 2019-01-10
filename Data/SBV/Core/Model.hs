@@ -94,7 +94,7 @@ genLiteral :: Integral a => Kind -> a -> SBV b
 genLiteral k = SBV . SVal k . Left . mkConstCW k
 
 -- | Convert a constant to an integral value
-genFromCW :: Integral a => CW -> a
+genFromCW :: (HasCallStack, Integral a) => CW -> a
 genFromCW (CW _ (CWInteger x)) = fromInteger x
 genFromCW c                    = error $ "genFromCW: Unsupported non-integral value: " ++ show c
 

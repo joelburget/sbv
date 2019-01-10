@@ -56,6 +56,8 @@ module Data.SBV.Core.Data
  , HList(..)
  ) where
 
+import GHC.Stack
+
 import GHC.Generics (Generic)
 import GHC.Exts     (IsList(..))
 
@@ -416,7 +418,7 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
   -- | Turn a literal constant to symbolic
   literal :: a -> SBV a
   -- | Extract a literal, from a CW representation
-  fromCW :: CW -> a
+  fromCW :: HasCallStack => CW -> a
   -- | Does it concretely satisfy the given predicate?
   isConcretely :: SBV a -> (a -> Bool) -> Bool
 
@@ -489,7 +491,7 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
   symbolics = mapM symbolic
 
   -- | Extract a literal, if the value is concrete
-  unliteral :: SBV a -> Maybe a
+  unliteral :: HasCallStack => SBV a -> Maybe a
   unliteral (SBV (SVal _ (Left c)))  = Just $ fromCW c
   unliteral _                        = Nothing
 
