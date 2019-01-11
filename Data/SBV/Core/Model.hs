@@ -347,7 +347,11 @@ instance (SymWord a, SymWord b) => SymWord (a, b) where
       let k = KTuple [kindOf a, kindOf b]
       in SBV $ SVal k $ Left $ CW k $ CWTuple [aval, bval]
     _ -> error "literal (a, b)"
-  fromCW (CW (KTuple [ka, kb]) (CWTuple [cwa, cwb])) =
+  fromCW (CW ktup@(KTuple [ka, kb]) (CWTuple cwtup@[cwa, cwb])) =
+    trace ("ktup: " ++ show ktup) $
+    trace ("cwtup: " ++ show cwtup) $
+    trace ("kindOf a: " ++ show (kindOf (undefined :: a))) $
+    trace ("kindOf b: " ++ show (kindOf (undefined :: b))) $
     (fromCW (CW ka cwa), fromCW (CW kb cwb))
   fromCW _ = error "fromCW (a, b)"
   -- mkSymWord x y = coerceTup <$> mkSymWord x y
