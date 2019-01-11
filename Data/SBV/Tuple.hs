@@ -27,6 +27,8 @@ module Data.SBV.Tuple (
   , tuple, untuple
   ) where
 
+import Debug.Trace
+
 import GHC.Stack
 import GHC.TypeLits
 
@@ -71,11 +73,11 @@ symbolicFieldAccess i tup
   | 1 > i || i > lks
   = bad $ "Index is out of bounds, " ++ show i ++ " is outside [1," ++ show lks ++ "]"
   | SBV (SVal kval (Left v)) <- tup
-  = case cvVal v of
-      CTuple vs | kval      /= ktup -> bad $ "Kind/value mismatch: "      ++ show kval
+  = case cvVal $ trace ("tup: " ++ show tup) $ trace ("v: " ++ show v) $ trace ("kval: " ++ show kval) $ trace ("ktup: " ++ show ktup) v of
+      CTuple vs | kval      /= ktup -> bad $ "Kind/value mismatch (1): "      ++ show kval
                 | length vs /= lks  -> bad $ "Value has fewer elements: " ++ show (CV kval (CTuple vs))
                 | True              -> literal $ fromCV $ CV kElem (vs !! (i-1))
-      _                             -> bad $ "Kind/value mismatch: " ++ show v
+      _                             -> bad $ "Kind/value mismatch (2): " ++ show v
   | True
   = symAccess
   where ktup = kindOf tup
