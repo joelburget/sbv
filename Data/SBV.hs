@@ -1,10 +1,10 @@
----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- (The sbv library is hosted at <http://github.com/LeventErkok/sbv>.
 -- Comments, bug reports, and patches are always welcome.)
@@ -110,7 +110,7 @@
 --
 -- Support for other compliant solvers can be added relatively easily, please
 -- get in touch if there is a solver you'd like to see included.
----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 module Data.SBV (
   -- $progIntro
@@ -145,6 +145,7 @@ module Data.SBV (
   , SList
   -- ** Tuples
   -- $tuples
+  , STuple2, STuple3, STuple4, STuple5, STuple6, STuple7, STuple8
   -- * Arrays of symbolic values
   , SymArray(readArray, writeArray, mergeArrays), newArray_, newArray, SArray, SFunArray
 
@@ -246,8 +247,8 @@ module Data.SBV (
   -- $softAssertions
   , assertWithPenalty , Penalty(..)
   -- ** Field extensions
-  -- | If an optimization results in an infinity/epsilon value, the returned `CW` value will be in the corresponding extension field.
-  , ExtCW(..), GeneralizedCW(..)
+  -- | If an optimization results in an infinity/epsilon value, the returned `CV` value will be in the corresponding extension field.
+  , ExtCV(..), GeneralizedCV(..)
 
   -- * Model extraction
   -- $modelExtraction
@@ -280,9 +281,9 @@ module Data.SBV (
 
   -- * Abstract SBV type
   , SBV, HasKind(..), Kind(..)
-  , SymWord, forall, forall_, mkForallVars, exists, exists_, mkExistVars, free
-  , free_, mkFreeVars, symbolic, symbolics, literal, unliteral, fromCW
-  , isConcrete, isSymbolic, isConcretely, mkSymWord
+  , SymVal, forall, forall_, mkForallVars, exists, exists_, mkExistVars, free
+  , free_, mkFreeVars, symbolic, symbolics, literal, unliteral, fromCV
+  , isConcrete, isSymbolic, isConcretely, mkSymVal
   , MonadSymbolic(..), Symbolic, SymbolicT, label, output, runSMT, runSMTWith
 
   -- * Module exports
@@ -298,18 +299,18 @@ import Data.SBV.Core.AlgReals
 import Data.SBV.Core.Data       hiding (addAxiom, forall, forall_,
                                         mkForallVars, exists, exists_,
                                         mkExistVars, free, free_, mkFreeVars,
-                                        output, symbolic, symbolics, mkSymWord,
+                                        output, symbolic, symbolics, mkSymVal,
                                         newArray, newArray_)
 import Data.SBV.Core.Model      hiding (assertWithPenalty, minimize, maximize,
                                         forall, forall_, exists, exists_,
                                         solve, sBool, sBools, sChar, sChars,
                                         sDouble, sDoubles, sFloat, sFloats,
-                                        sInt8, sInt8s, sInt16, sInt16s, sInt32,
-                                        sInt32s, sInt64, sInt64s, sInteger,
-                                        sIntegers, sList, sLists, sReal,
-                                        sReals, sString, sStrings, sWord8,
-                                        sWord8s, sWord16, sWord16s, sWord32,
-                                        sWord32s, sWord64, sWord64s)
+                                        sInt8, sInt8s, sInt16, sInt16s, sInt32, sInt32s,
+                                        sInt64, sInt64s, sInteger, sIntegers,
+                                        sList, sLists, sTuple, sTuples,
+                                        sReal, sReals, sString, sStrings,
+                                        sWord8, sWord8s, sWord16, sWord16s,
+                                        sWord32, sWord32s, sWord64, sWord64s)
 import Data.SBV.Core.Floating
 import Data.SBV.Core.Splittable
 import Data.SBV.Core.Symbolic   (MonadSymbolic(..), SymbolicT)
@@ -647,7 +648,7 @@ See "Data.SBV.List" for related functions.
 -}
 
 {- $tuples
-Tuples can be used as symbolic values. This is useful in combination with lists, for example @SBV [(Integer, String)]@ is a valid type. These types can be arbitrarily nested, eg @SBV [(Integer, [(Char, (Integer, String))])]@.
+Tuples can be used as symbolic values. This is useful in combination with lists, for example @SBV [(Integer, String)]@ is a valid type. These types can be arbitrarily nested, eg @SBV [(Integer, [(Char, (Integer, String))])]@. Instances of upto 8-tuples are provided.
 -}
 
 {- $shiftRotate
@@ -784,7 +785,7 @@ Users can introduce new uninterpreted sorts simply by defining a data-type in Ha
 following example demonstrates:
 
   @
-     data B = B () deriving (Eq, Ord, Show, Read, Data, SymWord, HasKind, SatModel)
+     data B = B () deriving (Eq, Ord, Show, Read, Data, SymVal, HasKind, SatModel)
   @
 
 (Note that you'll also need to use the language pragmas @DeriveDataTypeable@, @DeriveAnyClass@, and import @Data.Generics@ for the above to work.)

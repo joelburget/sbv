@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Documentation.SBV.Examples.Queries.FourFours
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Documentation.SBV.Examples.Queries.FourFours
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- A query based solution to the four-fours puzzle.
 -- Inspired by <http://www.gigamonkeys.com/trees/>
@@ -19,12 +19,12 @@
 -- and ask the SMT solver to find the appropriate fillings.
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE StandaloneDeriving  #-}
-{-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveDataTypeable  #-}
+{-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Documentation.SBV.Examples.Queries.FourFours where
 
@@ -100,7 +100,7 @@ fill F         = return F
 
 -- | Minor helper for writing "symbolic" case statements. Simply walks down a list
 -- of values to match against a symbolic version of the key.
-sCase :: (SymWord a, Mergeable v) => SBV a -> [(a, v)] -> v
+sCase :: (SymVal a, Mergeable v) => SBV a -> [(a, v)] -> v
 sCase k = walk
   where walk []              = error "sCase: Expected a non-empty list of cases!"
         walk [(_, v)]        = v

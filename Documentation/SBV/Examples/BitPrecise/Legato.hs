@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Documentation.SBV.Examples.BitPrecise.Legato
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Documentation.SBV.Examples.BitPrecise.Legato
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- An encoding and correctness proof of Legato's multiplier in Haskell. Bill Legato came
 -- up with an interesting way to multiply two 8-bit numbers on Mostek, as described here:
@@ -31,8 +31,8 @@
 -- is indeed correct.
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Documentation.SBV.Examples.BitPrecise.Legato where
 

@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  TestSuite.Basics.AllSat
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : TestSuite.Basics.AllSat
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Test suite for basic allsat calls
 -----------------------------------------------------------------------------
@@ -33,7 +33,7 @@ tests =
 srt :: AllSatResult -> AllSatResult
 srt (AllSatResult (b1, b2, rs)) = AllSatResult (b1, b2, sortOn getModelDictionary rs)
 
-newtype Q = Q () deriving (Eq, Ord, Data, Read, Show, SymWord, HasKind)
+newtype Q = Q () deriving (Eq, Ord, Data, Read, Show, SymVal, HasKind)
 type SQ = SBV Q
 
 t1 :: IO AllSatResult

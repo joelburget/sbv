@@ -1,18 +1,18 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.Client
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.Client
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Cross-cutting toplevel client functions
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Data.SBV.Client
   ( sbvCheckSolverInstallation
@@ -63,7 +63,7 @@ mkSymbolicEnumeration typeName = do
         deriving instance Ord      $(typeCon)
         deriving instance Read     $(typeCon)
         deriving instance Data     $(typeCon)
-        deriving instance SymWord  $(typeCon)
+        deriving instance SymVal   $(typeCon)
         deriving instance HasKind  $(typeCon)
         deriving instance SMTValue $(typeCon)
         deriving instance SatModel $(typeCon)

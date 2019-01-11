@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Utils.SBVTestFramework
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Utils.SBVTestFramework
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Various goodies for testing SBV
 -----------------------------------------------------------------------------
@@ -149,7 +149,7 @@ doTheDiff nm ref new act = goldenTest nm (BS.readFile ref) (act >> BS.readFile n
                 diff    = concatMap pick $ zip3 [1..diffLen] (lxs ++ repeat "") (lys ++ repeat "")
 
                 pick (i, expected, got)
-                  | expected == got
+                  | filter (/= '\r') expected == filter (/= '\r') got
                   = []
                   | True
                   = [ "== Line " ++ show i ++ " =="
@@ -187,7 +187,7 @@ assertIsntSat :: Provable a => a -> Assertion
 assertIsntSat p = assert (fmap not (isSatisfiable p))
 
 -- | Quick-check a unary function, creating one version for constant folding, and another for solver
-qc1 :: (SymWord a, SymWord b, Show a, QC.Arbitrary a, SMTValue b) => String -> (a -> b) -> (SBV a -> SBV b) -> [TestTree]
+qc1 :: (SymVal a, SymVal b, Show a, QC.Arbitrary a, SMTValue b) => String -> (a -> b) -> (SBV a -> SBV b) -> [TestTree]
 qc1 nm opC opS = [cf, sm]
    where cf = QC.testProperty (nm ++ ".constantFold") $ do
                         i <- free "i"
@@ -220,15 +220,15 @@ qc1 nm opC opS = [cf, sm]
                                                                                      Sat   -> do r <- getValue res
                                                                                                  return (pre, Right r)
 
-                        let getCW vnm (SBV (SVal _ (Left c))) = (vnm, c)
-                            getCW vnm (SBV (SVal k _       )) = error $ "qc2.getCW: Impossible happened, non-CW value while extracting: " ++ show (vnm, k)
+                        let getCV vnm (SBV (SVal _ (Left c))) = (vnm, c)
+                            getCV vnm (SBV (SVal k _       )) = error $ "qc2.getCV: Impossible happened, non-CV value while extracting: " ++ show (vnm, k)
 
-                            vals = [ getCW "i"        (literal i)
-                                   , getCW "Expected" (literal expected)
+                            vals = [ getCV "i"        (literal i)
+                                   , getCV "Expected" (literal expected)
                                    ]
 
                             model = case result of
-                                      Right v -> showModel defaultSMTCfg (SMTModel [] (vals ++ [getCW "Result" (literal v)]))
+                                      Right v -> showModel defaultSMTCfg (SMTModel [] (vals ++ [getCV "Result" (literal v)]))
                                       Left  e -> showModel defaultSMTCfg (SMTModel [] vals) ++ "\n" ++ e
 
                         QC.monitor (QC.counterexample model)
@@ -239,7 +239,7 @@ qc1 nm opC opS = [cf, sm]
 
 
 -- | Quick-check a binary function, creating one version for constant folding, and another for solver
-qc2 :: (SymWord a, SymWord b, SymWord c, Show a, Show b, QC.Arbitrary a, QC.Arbitrary b, SMTValue c) => String -> (a -> b -> c) -> (SBV a -> SBV b -> SBV c) -> [TestTree]
+qc2 :: (SymVal a, SymVal b, SymVal c, Show a, Show b, QC.Arbitrary a, QC.Arbitrary b, SMTValue c) => String -> (a -> b -> c) -> (SBV a -> SBV b -> SBV c) -> [TestTree]
 qc2 nm opC opS = [cf, sm]
    where cf = QC.testProperty (nm ++ ".constantFold") $ do
                         i1 <- free "i1"
@@ -277,16 +277,16 @@ qc2 nm opC opS = [cf, sm]
                                                                                           Sat   -> do r <- getValue res
                                                                                                       return (pre, Right r)
 
-                        let getCW vnm (SBV (SVal _ (Left c))) = (vnm, c)
-                            getCW vnm (SBV (SVal k _       )) = error $ "qc2.getCW: Impossible happened, non-CW value while extracting: " ++ show (vnm, k)
+                        let getCV vnm (SBV (SVal _ (Left c))) = (vnm, c)
+                            getCV vnm (SBV (SVal k _       )) = error $ "qc2.getCV: Impossible happened, non-CV value while extracting: " ++ show (vnm, k)
 
-                            vals = [ getCW "i1"       (literal i1)
-                                   , getCW "i2"       (literal i2)
-                                   , getCW "Expected" (literal expected)
+                            vals = [ getCV "i1"       (literal i1)
+                                   , getCV "i2"       (literal i2)
+                                   , getCV "Expected" (literal expected)
                                    ]
 
                             model = case result of
-                                      Right v -> showModel defaultSMTCfg (SMTModel [] (vals ++ [getCW "Result" (literal v)]))
+                                      Right v -> showModel defaultSMTCfg (SMTModel [] (vals ++ [getCV "Result" (literal v)]))
                                       Left  e -> showModel defaultSMTCfg (SMTModel [] vals) ++ "\n" ++ e
 
                         QC.monitor (QC.counterexample model)

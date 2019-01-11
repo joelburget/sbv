@@ -36,7 +36,7 @@ queryTuples1 :: Symbolic (Integer, Char)
 queryTuples1 = do
   a <- sTuple @(Integer, Char) "a"
 
-  constrain $ field1 a .== 1
+  constrain $ a^._1 .== 1
 
   query $ do
     _ <- checkSat

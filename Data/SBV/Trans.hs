@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.Trans
--- Copyright   :  (c) Brian Schroeder, Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.Trans
+-- Author    : Brian Schroeder, Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- More generalized alternative to @Data.SBV@ for advanced client use
 -----------------------------------------------------------------------------
@@ -111,8 +111,8 @@ module Data.SBV.Trans (
   -- ** Soft assumptions
   , assertWithPenalty , Penalty(..)
   -- ** Field extensions
-  -- | If an optimization results in an infinity/epsilon value, the returned `CW` value will be in the corresponding extension field.
-  , ExtCW(..), GeneralizedCW(..)
+  -- | If an optimization results in an infinity/epsilon value, the returned `CV` value will be in the corresponding extension field.
+  , ExtCV(..), GeneralizedCV(..)
 
   -- * Model extraction
 
@@ -139,7 +139,7 @@ module Data.SBV.Trans (
   , SBVException(..)
 
   -- * Abstract SBV type
-  , SBV, HasKind(..), Kind(..), SymWord(..)
+  , SBV, HasKind(..), Kind(..), SymVal(..)
   , MonadSymbolic(..), Symbolic, SymbolicT, label, output, runSMT, runSMTWith
 
   -- * Module exports

@@ -1,14 +1,10 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.String
--- Copyright   :  (c) Joel Burget, Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.String
+-- Author    : Joel Burget, Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- A collection of string/character utilities, useful when working
 -- with symbolic strings. To the extent possible, the functions
@@ -18,11 +14,16 @@
 -- used as symbolic-strings.
 -----------------------------------------------------------------------------
 
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
+
 module Data.SBV.String (
         -- * Length, emptiness
           length, null
         -- * Deconstructing/Reconstructing
-        , head, tail, init, singleton, strToStrAt, strToCharAt, (.!!), implode, concat, (.:), (.++)
+        , head, tail, uncons, init, singleton, strToStrAt, strToCharAt, (.!!), implode, concat, (.:), nil, (.++)
         -- * Containment
         , isInfixOf, isSuffixOf, isPrefixOf
         -- * Substrings
@@ -40,6 +41,8 @@ import Data.SBV.Core.Model
 import qualified Data.Char as C
 import Data.List (genericLength, genericIndex, genericDrop, genericTake)
 import qualified Data.List as L (tails, isSuffixOf, isPrefixOf, isInfixOf)
+
+import Data.Proxy
 
 -- For doctest use only
 --
@@ -93,6 +96,10 @@ tail s
  = literal cs
  | True
  = subStr s 1 (length s - 1)
+
+-- | @`uncons` returns the pair of the first character and tail. Unspecified if the string is empty.
+uncons :: SString -> (SChar, SString)
+uncons l = (head l, tail l)
 
 -- | @`init`@ returns all but the last element of the list. Unspecified if the string is empty.
 --
@@ -170,6 +177,13 @@ implode = foldr ((.++) . singleton) ""
 infixr 5 .:
 (.:) :: SChar -> SString -> SString
 c .: cs = singleton c .++ cs
+
+-- | Empty string. This value has the property that it's the only string with length 0:
+--
+-- >>> prove $ \l -> length l .== 0 .<=> l .== nil
+-- Q.E.D.
+nil :: SString
+nil = ""
 
 -- | Concatenate two strings. See also `.++`.
 concat :: SString -> SString -> SString
@@ -362,51 +376,51 @@ natToStr i
  = lift1 StrNatToStr Nothing i
 
 -- | Lift a unary operator over strings.
-lift1 :: forall a b. (SymWord a, SymWord b) => StrOp -> Maybe (a -> b) -> SBV a -> SBV b
+lift1 :: forall a b. (SymVal a, SymVal b) => StrOp -> Maybe (a -> b) -> SBV a -> SBV b
 lift1 w mbOp a
   | Just cv <- concEval1 mbOp a
   = cv
   | True
   = SBV $ SVal k $ Right $ cache r
-  where k = kindOf (undefined :: b)
-        r st = do swa <- sbvToSW st a
-                  newExpr st k (SBVApp (StrOp w) [swa])
+  where k = kindOf (Proxy @b)
+        r st = do sva <- sbvToSV st a
+                  newExpr st k (SBVApp (StrOp w) [sva])
 
 -- | Lift a binary operator over strings.
-lift2 :: forall a b c. (SymWord a, SymWord b, SymWord c) => StrOp -> Maybe (a -> b -> c) -> SBV a -> SBV b -> SBV c
+lift2 :: forall a b c. (SymVal a, SymVal b, SymVal c) => StrOp -> Maybe (a -> b -> c) -> SBV a -> SBV b -> SBV c
 lift2 w mbOp a b
   | Just cv <- concEval2 mbOp a b
   = cv
   | True
   = SBV $ SVal k $ Right $ cache r
-  where k = kindOf (undefined :: c)
-        r st = do swa <- sbvToSW st a
-                  swb <- sbvToSW st b
-                  newExpr st k (SBVApp (StrOp w) [swa, swb])
+  where k = kindOf (Proxy @c)
+        r st = do sva <- sbvToSV st a
+                  svb <- sbvToSV st b
+                  newExpr st k (SBVApp (StrOp w) [sva, svb])
 
 -- | Lift a ternary operator over strings.
-lift3 :: forall a b c d. (SymWord a, SymWord b, SymWord c, SymWord d) => StrOp -> Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> SBV d
+lift3 :: forall a b c d. (SymVal a, SymVal b, SymVal c, SymVal d) => StrOp -> Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> SBV d
 lift3 w mbOp a b c
   | Just cv <- concEval3 mbOp a b c
   = cv
   | True
   = SBV $ SVal k $ Right $ cache r
-  where k = kindOf (undefined :: d)
-        r st = do swa <- sbvToSW st a
-                  swb <- sbvToSW st b
-                  swc <- sbvToSW st c
-                  newExpr st k (SBVApp (StrOp w) [swa, swb, swc])
+  where k = kindOf (Proxy @d)
+        r st = do sva <- sbvToSV st a
+                  svb <- sbvToSV st b
+                  svc <- sbvToSV st c
+                  newExpr st k (SBVApp (StrOp w) [sva, svb, svc])
 
 -- | Concrete evaluation for unary ops
-concEval1 :: (SymWord a, SymWord b) => Maybe (a -> b) -> SBV a -> Maybe (SBV b)
+concEval1 :: (SymVal a, SymVal b) => Maybe (a -> b) -> SBV a -> Maybe (SBV b)
 concEval1 mbOp a = literal <$> (mbOp <*> unliteral a)
 
 -- | Concrete evaluation for binary ops
-concEval2 :: (SymWord a, SymWord b, SymWord c) => Maybe (a -> b -> c) -> SBV a -> SBV b -> Maybe (SBV c)
+concEval2 :: (SymVal a, SymVal b, SymVal c) => Maybe (a -> b -> c) -> SBV a -> SBV b -> Maybe (SBV c)
 concEval2 mbOp a b = literal <$> (mbOp <*> unliteral a <*> unliteral b)
 
 -- | Concrete evaluation for ternary ops
-concEval3 :: (SymWord a, SymWord b, SymWord c, SymWord d) => Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> Maybe (SBV d)
+concEval3 :: (SymVal a, SymVal b, SymVal c, SymVal d) => Maybe (a -> b -> c -> d) -> SBV a -> SBV b -> SBV c -> Maybe (SBV d)
 concEval3 mbOp a b c = literal <$> (mbOp <*> unliteral a <*> unliteral b <*> unliteral c)
 
 -- | Is the string concretely known empty?

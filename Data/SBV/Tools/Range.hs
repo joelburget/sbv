@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.Tools.Range
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.Tools.Range
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Single variable valid range detection.
 -----------------------------------------------------------------------------
@@ -85,11 +85,11 @@ instance Show a => Show (Range a) where
 -- [(0.0,oo)]
 -- >>> ranges $ \x -> x .< (0::SReal)
 -- [(-oo,0.0)]
-ranges :: forall a. (Num a, SymWord a,  SMTValue a, SatModel a, Metric (SBV a)) => (SBV a -> SBool) -> IO [Range a]
+ranges :: forall a. (Num a, SymVal a,  SMTValue a, SatModel a, Metric (SBV a)) => (SBV a -> SBool) -> IO [Range a]
 ranges = rangesWith defaultSMTCfg
 
 -- | Compute ranges, using the given solver configuration.
-rangesWith :: forall a. (Num a, SymWord a,  SMTValue a, SatModel a, Metric (SBV a)) => SMTConfig -> (SBV a -> SBool) -> IO [Range a]
+rangesWith :: forall a. (Num a, SymVal a,  SMTValue a, SatModel a, Metric (SBV a)) => SMTConfig -> (SBV a -> SBool) -> IO [Range a]
 rangesWith cfg prop = do mbBounds <- getInitialBounds
                          case mbBounds of
                            Nothing -> return []
@@ -97,21 +97,21 @@ rangesWith cfg prop = do mbBounds <- getInitialBounds
 
   where getInitialBounds :: IO (Maybe (Range a))
         getInitialBounds = do
-            let getGenVal :: GeneralizedCW -> Boundary a
-                getGenVal (RegularCW  cw)  = Closed $ getRegVal cw
-                getGenVal (ExtendedCW ecw) = getExtVal ecw
+            let getGenVal :: GeneralizedCV -> Boundary a
+                getGenVal (RegularCV  cv)  = Closed $ getRegVal cv
+                getGenVal (ExtendedCV ecv) = getExtVal ecv
 
-                getExtVal :: ExtCW -> Boundary a
+                getExtVal :: ExtCV -> Boundary a
                 getExtVal (Infinite _) = Unbounded
-                getExtVal (Epsilon  k) = Open $ getRegVal (mkConstCW k (0::Integer))
+                getExtVal (Epsilon  k) = Open $ getRegVal (mkConstCV k (0::Integer))
                 getExtVal i@Interval{} = error $ unlines [ "*** Data.SBV.ranges.getExtVal: Unexpected interval bounds!"
                                                          , "***"
                                                          , "*** Found bound: " ++ show i
                                                          , "*** Please report this as a bug!"
                                                          ]
-                getExtVal (BoundedCW cw) = Closed $ getRegVal cw
-                getExtVal (AddExtCW a b) = getExtVal a `addBound` getExtVal b
-                getExtVal (MulExtCW a b) = getExtVal a `mulBound` getExtVal b
+                getExtVal (BoundedCV cv) = Closed $ getRegVal cv
+                getExtVal (AddExtCV a b) = getExtVal a `addBound` getExtVal b
+                getExtVal (MulExtCV a b) = getExtVal a `mulBound` getExtVal b
 
                 opBound :: (a -> a -> a) -> Boundary a -> Boundary a -> Boundary a
                 opBound f x y = case (fromBound x, fromBound y, isClosed x && isClosed y) of
@@ -126,10 +126,10 @@ rangesWith cfg prop = do mbBounds <- getInitialBounds
                 addBound = opBound (+)
                 mulBound = opBound (*)
 
-                getRegVal :: CW -> a
-                getRegVal cw = case parseCWs [cw] of
+                getRegVal :: CV -> a
+                getRegVal cv = case parseCVs [cv] of
                                  Just (v, []) -> v
-                                 _            -> error $ "Data.SBV.interval.getRegVal: Cannot parse " ++ show cw
+                                 _            -> error $ "Data.SBV.interval.getRegVal: Cannot parse " ++ show cv
 
             IndependentResult m <- optimizeWith cfg Independent $ do x <- free_
                                                                      constrain $ prop x

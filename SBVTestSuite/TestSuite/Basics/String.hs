@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  TestSuite.Basics.String
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : TestSuite.Basics.String
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Test the string functions.
 -- Most of these tests are adopted from <http://rise4fun.com/z3/tutorialcontent/sequences>
@@ -180,7 +180,7 @@ strExamples14 = do m <- allSat $ do s <- sString "s"
                    let dicts = getModelDictionaries m
 
                        vals :: [Int]
-                       vals = map C.ord $ concat $ sort $ map (fromCW . snd) (concatMap M.assocs dicts)
+                       vals = map C.ord $ concat $ sort $ map (fromCV . snd) (concatMap M.assocs dicts)
 
                    case length dicts of
                      256 -> return $ vals == [0 .. 255]

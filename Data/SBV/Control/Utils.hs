@@ -1,27 +1,29 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.Control.Utils
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.Control.Utils
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Query related utils.
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE    BangPatterns         #-}
-{-# LANGUAGE    DefaultSignatures    #-}
-{-# LANGUAGE    LambdaCase           #-}
-{-# LANGUAGE    NamedFieldPuns       #-}
-{-# LANGUAGE    ScopedTypeVariables  #-}
-{-# LANGUAGE    TupleSections        #-}
-{-# LANGUAGE    TypeSynonymInstances #-}
-{-# LANGUAGE    FlexibleInstances    #-}
-{-# OPTIONS_GHC -fno-warn-orphans    #-}
+{-# LANGUAGE BangPatterns         #-}
+{-# LANGUAGE DefaultSignatures    #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TupleSections        #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.SBV.Control.Utils (
        io
-     , ask, send, getValue, getUninterpretedValue, getValueCW, getUnsatAssumptions, SMTValue(..)
+     , ask, send, getValue, getUninterpretedValue, getValueCV, getUnsatAssumptions, SMTValue(..)
      , getQueryState, modifyQueryState, getConfig, getObjectives, getSBVAssertions, getSBVPgm, getQuantifiedInputs, getObservables
      , checkSat, checkSatUsing, getAllSatResult
      , inNewContext, freshVar, freshVar_, freshArray, freshArray_
@@ -36,11 +38,12 @@ module Data.SBV.Control.Utils (
      ) where
 
 import Data.Maybe (isJust)
-import Data.List  (sortBy, sortOn, elemIndex, partition, groupBy, tails, isPrefixOf)
+import Data.List  (sortBy, sortOn, elemIndex, partition, groupBy, tails)
 
-import Data.Char     (isPunctuation, isSpace, chr, ord)
+import Data.Char     (isPunctuation, isSpace, chr, ord, isDigit)
 import Data.Function (on)
 
+import Data.Proxy
 import Data.Typeable (Typeable)
 
 import Data.Int
@@ -58,16 +61,16 @@ import Data.IORef (readIORef, writeIORef)
 
 import Data.Time (getZonedTime)
 
-import Data.SBV.Core.Data     ( SW(..), CW(..), SBV, AlgReal, sbvToSW, kindOf, Kind(..)
-                              , HasKind(..), mkConstCW, CWVal(..), SMTResult(..)
+import Data.SBV.Core.Data     ( SV(..), CV(..), SBV, AlgReal, sbvToSV, kindOf, Kind(..)
+                              , HasKind(..), mkConstCV, CVal(..), SMTResult(..)
                               , NamedSymVar, SMTConfig(..), SMTModel(..)
                               , QueryState(..), SVal(..), Quantifier(..), cache
                               , newExpr, SBVExpr(..), Op(..), FPOp(..), SBV(..), SymArray(..)
                               , SolverContext(..), SBool, Objective(..), SolverCapabilities(..), capabilities
-                              , Result(..), SMTProblem(..), trueSW, SymWord(..), SBVPgm(..), SMTSolver(..), SBVRunMode(..)
+                              , Result(..), SMTProblem(..), trueSV, SymVal(..), SBVPgm(..), SMTSolver(..), SBVRunMode(..)
                               )
 
-import Data.SBV.Core.Symbolic ( IncState(..), withNewIncState, State(..), svToSW, symbolicEnv, SymbolicT
+import Data.SBV.Core.Symbolic ( IncState(..), withNewIncState, State(..), svToSV, symbolicEnv, SymbolicT
                               , MonadQuery(..), QueryContext(..)
                               , registerLabel, svMkSymVar
                               , isSafetyCheckingIStage, isSetupIStage, isRunIStage, IStage(..), QueryT(..)
@@ -90,7 +93,6 @@ import qualified Data.Set as Set (toList)
 import qualified Control.Exception as C
 
 import GHC.Stack
-import Text.Read (readMaybe)
 
 import Unsafe.Coerce (unsafeCoerce) -- Only used safely!
 
@@ -111,9 +113,11 @@ instance MonadIO m => SolverContext (QueryT m) where
 -- | Adding a constraint, possibly with attributes and possibly soft. Only used internally.
 -- Use 'constrain' and 'namedConstraint' from user programs.
 addQueryConstraint :: (MonadIO m, MonadQuery m) => Bool -> [(String, String)] -> SBool -> m ()
-addQueryConstraint isSoft atts b = do sw <- inNewContext (\st -> liftIO $ do mapM_ (registerLabel "Constraint" st) [nm | (":named", nm) <- atts]
-                                                                             sbvToSW st b)
-                                      send True $ "(" ++ asrt ++ " " ++ addAnnotations atts (show sw)  ++ ")"
+addQueryConstraint isSoft atts b = do sv <- inNewContext (\st -> liftIO $ do mapM_ (registerLabel "Constraint" st) [nm | (":named", nm) <- atts]
+                                                                             sbvToSV st b)
+
+                                      unless (null atts && sv == trueSV) $
+                                             send True $ "(" ++ asrt ++ " " ++ addAnnotations atts (show sv)  ++ ")"
    where asrt | isSoft = "assert-soft"
               | True   = "assert"
 
@@ -122,7 +126,7 @@ getConfig :: (MonadIO m, MonadQuery m) => m SMTConfig
 getConfig = queryConfig <$> getQueryState
 
 -- | Get the objectives
-getObjectives :: (MonadIO m, MonadQuery m) => m [Objective (SW, SW)]
+getObjectives :: (MonadIO m, MonadQuery m) => m [Objective (SV, SV)]
 getObjectives = do State{rOptGoals} <- queryState
                    io $ reverse <$> readIORef rOptGoals
 
@@ -132,7 +136,7 @@ getSBVPgm = do State{spgm} <- queryState
                io $ readIORef spgm
 
 -- | Get the assertions put in via 'Data.SBV.sAssert'
-getSBVAssertions :: (MonadIO m, MonadQuery m) => m [(String, Maybe CallStack, SW)]
+getSBVAssertions :: (MonadIO m, MonadQuery m) => m [(String, Maybe CallStack, SV)]
 getSBVAssertions = do State{rAsserts} <- queryState
                       io $ reverse <$> readIORef rAsserts
 
@@ -154,6 +158,7 @@ syncUpSolver afterAPush is = do
                        tbls  <- map arrange . sortBy cmp . map swap . Map.toList <$> readIORef (rNewTbls is)
                        uis   <- Map.toAscList <$> readIORef (rNewUIs is)
                        as    <- readIORef (rNewAsgns is)
+
                        return $ toIncSMTLib afterAPush cfg inps ks cnsts arrs tbls uis as cfg
         mapM_ (send True) $ mergeSExpr ls
 
@@ -192,14 +197,14 @@ inNewContext act = do st <- queryState
                       return r
 
 -- | Generalization of 'Data.SBV.Control.freshVar_'
-freshVar_ :: forall a m. (MonadIO m, MonadQuery m, SymWord a) => m (SBV a)
+freshVar_ :: forall a m. (MonadIO m, MonadQuery m, SymVal a) => m (SBV a)
 freshVar_ = inNewContext $ fmap SBV . svMkSymVar (Just EX) k Nothing
-  where k = kindOf (undefined :: a)
+  where k = kindOf (Proxy @a)
 
 -- | Generalization of 'Data.SBV.Control.freshVar'
-freshVar :: forall a m. (MonadIO m, MonadQuery m, SymWord a) => String -> m (SBV a)
+freshVar :: forall a m. (MonadIO m, MonadQuery m, SymVal a) => String -> m (SBV a)
 freshVar nm = inNewContext $ fmap SBV . svMkSymVar (Just EX) k (Just nm)
-  where k = kindOf (undefined :: a)
+  where k = kindOf (Proxy @a)
 
 -- | Generalization of 'Data.SBV.Control.freshArray_'
 freshArray_ :: (MonadIO m, MonadQuery m, SymArray array, HasKind a, HasKind b) => Maybe (SBV b) -> m (array a b)
@@ -361,7 +366,7 @@ instance (SMTValue a, Typeable a) => SMTValue [a] where
    -- and the ice is thin here. But it works, and is much better than a plethora
    -- of overlapping instances. Sigh.
    sexprToVal (ECon s)
-    | isKString (undefined :: [a]) && length s >= 2 && head s == '"' && last s == '"'
+    | isKString @[a] undefined && length s >= 2 && head s == '"' && last s == '"'
     = Just $ map unsafeCoerce s'
     | True
     = Just $ map (unsafeCoerce . c2w8) s'
@@ -380,57 +385,72 @@ instance (SMTValue a, Typeable a) => SMTValue [a] where
    sexprToVal _                                       = Nothing
 
 instance SMTValue () where
-  sexprToVal (ECon "tup-0") = pure ()
-  sexprToVal _              = Nothing
+   sexprToVal (ECon "SBVTuple0") = Just ()
+   sexprToVal _                  = Nothing
 
+-- | Convert a sexpr of n-tuple to constituent sexprs. Z3 and CVC4 differ here on how they
+-- present tuples, so we accommodate both:
+sexprToTuple :: Int -> SExpr -> [SExpr]
+sexprToTuple n e = try e
+  where -- Z3 way
+        try (EApp (ECon f : args)) = case splitAt (length "mkSBVTuple") f of
+                                       ("mkSBVTuple", c) | all isDigit c && read c == n && length args == n -> args
+                                       _  -> bad
+        -- CVC4 way
+        try  (EApp (EApp [ECon "as", ECon f, _] : args)) = try (EApp (ECon f : args))
+        try  _ = bad
+        bad = error $ "Data.SBV.sexprToTuple: Impossible: Expected a constructor for " ++ show n ++ " tuple, but got: " ++ show e
+
+-- 2-tuple
 instance (SMTValue a, SMTValue b) => SMTValue (a, b) where
-  sexprToVal (EApp [ECon "mk-tup-2", a, b])
-    = (,) <$> sexprToVal a <*> sexprToVal b
-  sexprToVal _
-    = Nothing
+   sexprToVal s = case sexprToTuple 2 s of
+                    [a, b] -> (,) <$> sexprToVal a <*> sexprToVal b
+                    _      -> Nothing
 
+-- 3-tuple
 instance (SMTValue a, SMTValue b, SMTValue c) => SMTValue (a, b, c) where
-  sexprToVal (EApp [ECon "mk-tup-3", a, b, c])
-    = (,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c
-  sexprToVal _
-    = Nothing
+   sexprToVal s = case sexprToTuple 3 s of
+                    [a, b, c] -> (,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c
+                    _         -> Nothing
 
-instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d)
-  => SMTValue (a, b, c, d) where
-  sexprToVal (EApp [ECon "mk-tup-4", a, b, c, d])
-    = (,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d
-  sexprToVal _
-    = Nothing
+-- 4-tuple
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d) => SMTValue (a, b, c, d) where
+   sexprToVal s = case sexprToTuple 4 s of
+                    [a, b, c, d] -> (,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d
+                    _            -> Nothing
 
-instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e)
-  => SMTValue (a, b, c, d, e) where
-  sexprToVal (EApp [ECon "mk-tup-5", a, b, c, d, e])
-    = (,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e
-  sexprToVal _
-    = Nothing
+-- 5-tuple
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e) => SMTValue (a, b, c, d, e) where
+   sexprToVal s = case sexprToTuple 5 s of
+                    [a, b, c, d, e] -> (,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e
+                    _               -> Nothing
 
-instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f)
-  => SMTValue (a, b, c, d, e, f) where
-  sexprToVal (EApp [ECon "mk-tup-6", a, b, c, d, e, f])
-    = (,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f
-  sexprToVal _
-    = Nothing
+-- 6-tuple
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f) => SMTValue (a, b, c, d, e, f) where
+   sexprToVal s = case sexprToTuple 6 s of
+                    [a, b, c, d, e, f] -> (,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f
+                    _                  -> Nothing
 
-instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f, SMTValue g)
-  => SMTValue (a, b, c, d, e, f, g) where
-  sexprToVal (EApp [ECon "mk-tup-7", a, b, c, d, e, f, g])
-    = (,,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f <*> sexprToVal g
-  sexprToVal _
-    = Nothing
+-- 7-tuple
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f, SMTValue g) => SMTValue (a, b, c, d, e, f, g) where
+   sexprToVal s = case sexprToTuple 7 s of
+                    [a, b, c, d, e, f, g] -> (,,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f <*> sexprToVal g
+                    _                     -> Nothing
+
+-- 8-tuple
+instance (SMTValue a, SMTValue b, SMTValue c, SMTValue d, SMTValue e, SMTValue f, SMTValue g, SMTValue h) => SMTValue (a, b, c, d, e, f, g, h) where
+   sexprToVal s = case sexprToTuple 8 s of
+                    [a, b, c, d, e, f, g, h] -> (,,,,,,,) <$> sexprToVal a <*> sexprToVal b <*> sexprToVal c <*> sexprToVal d <*> sexprToVal e <*> sexprToVal f <*> sexprToVal g <*> sexprToVal h
+                    _                        -> Nothing
 
 -- | Generalization of 'Data.SBV.Control.getValue'
 getValue :: (MonadIO m, MonadQuery m, SMTValue a) => SBV a -> m a
-getValue s = do sw <- inNewContext (`sbvToSW` s)
-                let nm  = show sw
+getValue s = do sv <- inNewContext (`sbvToSV` s)
+                let nm  = show sv
                     cmd = "(get-value (" ++ nm ++ "))"
                     bad = unexpected "getValue" cmd "a model value" Nothing
                 r <- ask cmd
-                parse r bad $ \case EApp [EApp [ECon o,  v]] | o == show sw -> case sexprToVal v of
+                parse r bad $ \case EApp [EApp [ECon o,  v]] | o == show sv -> case sexprToVal v of
                                                                                  Nothing -> bad r Nothing
                                                                                  Just c  -> return c
                                     _                                       -> bad r Nothing
@@ -439,29 +459,29 @@ getValue s = do sw <- inNewContext (`sbvToSW` s)
 getUninterpretedValue :: (MonadIO m, MonadQuery m, HasKind a) => SBV a -> m String
 getUninterpretedValue s =
         case kindOf s of
-          KUserSort _ (Left _) -> do sw <- inNewContext (`sbvToSW` s)
+          KUninterpreted _ (Left _) -> do sv <- inNewContext (`sbvToSV` s)
 
-                                     let nm  = show sw
-                                         cmd = "(get-value (" ++ nm ++ "))"
-                                         bad = unexpected "getValue" cmd "a model value" Nothing
+                                          let nm  = show sv
+                                              cmd = "(get-value (" ++ nm ++ "))"
+                                              bad = unexpected "getValue" cmd "a model value" Nothing
 
-                                     r <- ask cmd
+                                          r <- ask cmd
 
-                                     parse r bad $ \case EApp [EApp [ECon o,  ECon v]] | o == show sw -> return v
-                                                         _                                            -> bad r Nothing
+                                          parse r bad $ \case EApp [EApp [ECon o,  ECon v]] | o == show sv -> return v
+                                                              _                                            -> bad r Nothing
 
-          k                    -> error $ unlines [""
-                                                  , "*** SBV.getUninterpretedValue: Called on an 'interpreted' kind"
-                                                  , "*** "
-                                                  , "***    Kind: " ++ show k
-                                                  , "***    Hint: Use 'getValue' to extract value for interpreted kinds."
-                                                  , "*** "
-                                                  , "*** Only truly uninterpreted sorts should be used with 'getUninterpretedValue.'"
-                                                  ]
+          k                         -> error $ unlines [""
+                                                       , "*** SBV.getUninterpretedValue: Called on an 'interpreted' kind"
+                                                       , "*** "
+                                                       , "***    Kind: " ++ show k
+                                                       , "***    Hint: Use 'getValue' to extract value for interpreted kinds."
+                                                       , "*** "
+                                                       , "*** Only truly uninterpreted sorts should be used with 'getUninterpretedValue.'"
+                                                       ]
 
--- | Get the value of a term, but in CW form. Used internally. The model-index, in particular is extremely Z3 specific!
-getValueCWHelper :: (MonadIO m, MonadQuery m) => Maybe Int -> SW -> m CW
-getValueCWHelper mbi s = do
+-- | Get the value of a term, but in CV form. Used internally. The model-index, in particular is extremely Z3 specific!
+getValueCVHelper :: (MonadIO m, MonadQuery m) => Maybe Int -> SV -> m CV
+getValueCVHelper mbi s = do
        let nm  = show s
            k   = kindOf s
 
@@ -476,37 +496,29 @@ getValueCWHelper mbi s = do
        r <- ask cmd
 
        parse r bad $ \case EApp [EApp [ECon v, val]] | v == nm -> case recoverKindedValue (kindOf s) val of
-                                                                    Just cw -> return cw
+                                                                    Just cv -> return cv
                                                                     Nothing -> bad r Nothing
                            _                                   -> bad r Nothing
 
 -- | Recover a given solver-printed value with a possible interpretation
-recoverKindedValue :: Kind -> SExpr -> Maybe CW
+recoverKindedValue :: Kind -> SExpr -> Maybe CV
 recoverKindedValue k e = case e of
-                           ENum    i | isIntegralLike    -> Just $ mkConstCW k (fst i)
-                           ENum    i | isChar          k -> Just $ CW KChar    (CWChar    (chr (fromIntegral (fst i))))
-                           EReal   i | isReal          k -> Just $ CW KReal    (CWAlgReal i)
-                           EFloat  i | isFloat         k -> Just $ CW KFloat   (CWFloat   i)
-                           EDouble i | isDouble        k -> Just $ CW KDouble  (CWDouble  i)
-                           ECon    s | isString        k -> Just $ CW KString  (CWString   (interpretString s))
-                           ECon    s | isUninterpreted k -> Just $ CW k        (CWUserSort (getUIIndex k s, s))
-                           _         | isList          k -> Just $ CW k        (CWList     (interpretList e))
-
-                           -- eg `(mk-tup-3 a b c)`
-                           EApp (ECon f:args)
-                             | "mk-tup-" `isPrefixOf` f
-                             , Just n <- readMaybe (drop 7 f)
-                             , length args == n
-                             , KTuple argks <- k
-                             -> CW k . CWTuple . fmap cwVal <$> traverse
-                               (uncurry recoverKindedValue)
-                               (zip argks args)
+                           ENum    i | isIntegralLike    -> Just $ mkConstCV k (fst i)
+                           ENum    i | isChar          k -> Just $ CV KChar    (CChar    (chr (fromIntegral (fst i))))
+                           EReal   i | isReal          k -> Just $ CV KReal    (CAlgReal i)
+                           EFloat  i | isFloat         k -> Just $ CV KFloat   (CFloat   i)
+                           EDouble i | isDouble        k -> Just $ CV KDouble  (CDouble  i)
+                           ECon    s | isString        k -> Just $ CV KString  (CString   (interpretString s))
+                           ECon    s | isUninterpreted k -> Just $ CV k        (CUserSort (getUIIndex k s, s))
+                           _         | isList          k -> Just $ CV k        (CList     (interpretList e))
+                           _         | isTuple         k -> Just $ CV k        (CTuple    (interpretTuple e))
 
                            _ -> Nothing
+
   where isIntegralLike = or [f k | f <- [isBoolean, isBounded, isInteger, isReal, isFloat, isDouble]]
 
-        getUIIndex (KUserSort  _ (Right xs)) i = i `elemIndex` xs
-        getUIIndex _                         _ = Nothing
+        getUIIndex (KUninterpreted  _ (Right xs)) i = i `elemIndex` xs
+        getUIIndex _                              _ = Nothing
 
         stringLike xs = length xs >= 2 && head xs == '"' && last xs == '"'
 
@@ -523,11 +535,11 @@ recoverKindedValue k e = case e of
         -- Lists are tricky since z3 prints the 8-bit variants as strings. See: <http://github.com/Z3Prover/z3/issues/1808>
         interpretList (ECon s)
           | isStringSequence k && stringLike s
-          = map (CWInteger . fromIntegral . ord) $ interpretString s
+          = map (CInteger . fromIntegral . ord) $ interpretString s
         interpretList topExpr = walk topExpr
           where walk (EApp [ECon "as", ECon "seq.empty", _]) = []
                 walk (EApp [ECon "seq.unit", v])             = case recoverKindedValue ek v of
-                                                                 Just w -> [cwVal w]
+                                                                 Just w -> [cvVal w]
                                                                  Nothing -> error $ "Cannot parse a sequence item of kind " ++ show ek ++ " from: " ++ show v ++ extra v
                 walk (EApp [ECon "seq.++", pre, post])       = walk pre ++ walk post
                 walk cur                                     = error $ "Expected a sequence constant, but received: " ++ show cur ++ extra cur
@@ -538,28 +550,44 @@ recoverKindedValue k e = case e of
 
                 ek = case k of
                        KList ik -> ik
-                       _        -> error $ "Impossible: Expected a sequence kind, bug got: " ++ show k
+                       _        -> error $ "Impossible: Expected a sequence kind, but got: " ++ show k
 
--- | Generalization of 'Data.SBV.Control.getValueCW'
-getValueCW :: (MonadIO m, MonadQuery m) => Maybe Int -> SW -> m CW
-getValueCW mbi s
+        interpretTuple te = walk (1 :: Int) (zipWith recoverKindedValue ks args) []
+                where (ks, n) = case k of
+                                  KTuple eks -> (eks, length eks)
+                                  _          -> error $ unlines [ "Impossible: Expected a tuple kind, but got: " ++ show k
+                                                                , "While trying to parse: " ++ show te
+                                                                ]
+
+                      args = sexprToTuple n te
+
+                      walk _ []           sofar = reverse sofar
+                      walk i (Just el:es) sofar = walk (i+1) es (cvVal el : sofar)
+                      walk i (Nothing:_)  _     = error $ unlines [ "Couldn't parse a tuple element at position " ++ show i
+                                                                  , "Kind: " ++ show k
+                                                                  , "Expr: " ++ show te
+                                                                  ]
+
+-- | Generalization of 'Data.SBV.Control.getValueCV'
+getValueCV :: (MonadIO m, MonadQuery m) => Maybe Int -> SV -> m CV
+getValueCV mbi s
   | kindOf s /= KReal
-  = getValueCWHelper mbi s
+  = getValueCVHelper mbi s
   | True
   = do cfg <- getConfig
        if not (supportsApproxReals (capabilities (solver cfg)))
-          then getValueCWHelper mbi s
+          then getValueCVHelper mbi s
           else do send True "(set-option :pp.decimal false)"
-                  rep1 <- getValueCWHelper mbi s
+                  rep1 <- getValueCVHelper mbi s
                   send True   "(set-option :pp.decimal true)"
                   send True $ "(set-option :pp.decimal_precision " ++ show (printRealPrec cfg) ++ ")"
-                  rep2 <- getValueCWHelper mbi s
+                  rep2 <- getValueCVHelper mbi s
 
-                  let bad = unexpected "getValueCW" "get-value" ("a real-valued binding for " ++ show s) Nothing (show (rep1, rep2)) Nothing
+                  let bad = unexpected "getValueCV" "get-value" ("a real-valued binding for " ++ show s) Nothing (show (rep1, rep2)) Nothing
 
                   case (rep1, rep2) of
-                    (CW KReal (CWAlgReal a), CW KReal (CWAlgReal b)) -> return $ CW KReal (CWAlgReal (mergeAlgReals ("Cannot merge real-values for " ++ show s) a b))
-                    _                                                -> bad
+                    (CV KReal (CAlgReal a), CV KReal (CAlgReal b)) -> return $ CV KReal (CAlgReal (mergeAlgReals ("Cannot merge real-values for " ++ show s) a b))
+                    _                                              -> bad
 
 -- | Generalization of 'Data.SBV.Control.checkSat'
 checkSat :: (MonadIO m, MonadQuery m) => m CheckSatResult
@@ -594,7 +622,7 @@ getQuantifiedInputs = do State{rinps} <- queryState
                          return $ preQs ++ trackers ++ postQs
 
 -- | Get observables, i.e., those explicitly labeled by the user with a call to 'Data.SBV.observe'.
-getObservables :: (MonadIO m, MonadQuery m) => m [(String, SW)]
+getObservables :: (MonadIO m, MonadQuery m) => m [(String, SV)]
 getObservables = do State{rObservables} <- queryState
 
                     rObs <- liftIO $ readIORef rObservables
@@ -613,7 +641,7 @@ getAllSatResult = do queryDebug ["*** Checking Satisfiability, all solutions.."]
                      ki    <- liftIO $ readIORef rUsedKinds
                      qinps <- getQuantifiedInputs
 
-                     let usorts = [s | us@(KUserSort s _) <- Set.toList ki, isFree us]
+                     let usorts = [s | us@(KUninterpreted s _) <- Set.toList ki, isFree us]
 
                      unless (null usorts) $ queryDebug [ "*** SBV.allSat: Uninterpreted sorts present: " ++ unwords usorts
                                                        , "***             SBV will use equivalence classes to generate all-satisfying instances."
@@ -623,10 +651,10 @@ getAllSatResult = do queryDebug ["*** Checking Satisfiability, all solutions.."]
                          vars = let allModelInputs = takeWhile ((/= ALL) . fst) qinps
 
                                     sortByNodeId :: [NamedSymVar] -> [NamedSymVar]
-                                    sortByNodeId = sortBy (compare `on` (\(SW _ n, _) -> n))
+                                    sortByNodeId = sortBy (compare `on` (\(SV _ n, _) -> n))
 
                                     mkSVal :: NamedSymVar -> (SVal, NamedSymVar)
-                                    mkSVal nm@(sw, _) = (SVal (kindOf sw) (Right (cache (const (return sw)))), nm)
+                                    mkSVal nm@(sv, _) = (SVal (kindOf sv) (Right (cache (const (return sv)))), nm)
 
                                 in map mkSVal $ sortByNodeId [nv | (_, nv@(_, n)) <- allModelInputs, not (isNonModelVar cfg n)]
 
@@ -636,8 +664,8 @@ getAllSatResult = do queryDebug ["*** Checking Satisfiability, all solutions.."]
                      (sc, ms) <- loop vars cfg
                      return (sc, w, reverse ms)
 
-   where isFree (KUserSort _ (Left _)) = True
-         isFree _                      = False
+   where isFree (KUninterpreted _ (Left _)) = True
+         isFree _                           = False
 
          loop vars cfg = go (1::Int) []
            where go :: Int -> [SMTResult] -> m (Bool, [SMTResult])
@@ -652,11 +680,11 @@ getAllSatResult = do queryDebug ["*** Checking Satisfiability, all solutions.."]
                           Unsat -> return (False, sofar)
                           Unk   -> do queryDebug ["*** Solver returned unknown, terminating query."]
                                       return (False, sofar)
-                          Sat   -> do assocs <- mapM (\(sval, (sw, n)) -> do cw <- getValueCW Nothing sw
-                                                                             return (n, (sval, cw))) vars
+                          Sat   -> do assocs <- mapM (\(sval, (sv, n)) -> do cv <- getValueCV Nothing sv
+                                                                             return (n, (sval, cv))) vars
 
                                       let m = Satisfiable cfg SMTModel { modelObjectives = []
-                                                                       , modelAssocs     = [(n, cw) | (n, (_, cw)) <- assocs]
+                                                                       , modelAssocs     = [(n, cv) | (n, (_, cv)) <- assocs]
                                                                        }
 
                                           (interpreteds, uninterpreteds) = partition (not . isFree . kindOf . fst) (map snd assocs)
@@ -665,14 +693,14 @@ getAllSatResult = do queryDebug ["*** Checking Satisfiability, all solutions.."]
                                           -- NB. When the kind is floating, we *have* to be careful, since +/- zero, and NaN's
                                           -- and equality don't get along!
                                           interpretedEqs :: [SVal]
-                                          interpretedEqs = [mkNotEq (kindOf sv) sv (SVal (kindOf sv) (Left cw)) | (sv, cw) <- interpreteds]
+                                          interpretedEqs = [mkNotEq (kindOf sv) sv (SVal (kindOf sv) (Left cv)) | (sv, cv) <- interpreteds]
                                              where mkNotEq k a b
                                                     | isDouble k || isFloat k = svNot (a `fpNotEq` b)
                                                     | True                    = a `svNotEqual` b
 
                                                    fpNotEq a b = SVal KBool $ Right $ cache r
-                                                       where r st = do swa <- svToSW st a
-                                                                       swb <- svToSW st b
+                                                       where r st = do swa <- svToSV st a
+                                                                       swb <- svToSV st b
                                                                        newExpr st KBool (SBVApp (IEEEFP FP_ObjEqual) [swa, swb])
 
                                           -- For each "uninterpreted" variable, use equivalence class
@@ -681,7 +709,7 @@ getAllSatResult = do queryDebug ["*** Checking Satisfiability, all solutions.."]
                                                            . filter (\l -> length l > 1)  -- Only need this class if it has at least two members
                                                            . map (map fst)                -- throw away values, we only need svals
                                                            . groupBy ((==) `on` snd)      -- make sure they belong to the same sort and have the same value
-                                                           . sortOn snd                   -- sort them according to their CW (i.e., sort/value)
+                                                           . sortOn snd                   -- sort them according to their CV (i.e., sort/value)
                                                            $ uninterpreteds
                                             where pwDistinct :: [SVal] -> [SVal]
                                                   pwDistinct ss = [x `svNotEqual` y | (x:ys) <- tails ss, y <- ys]
@@ -784,7 +812,7 @@ runProofOn rm context comments res@(Result ki _qcInfo _observables _codeSegs is 
          flipQ (ALL, x) = (EX,  x)
          flipQ (EX,  x) = (ALL, x)
 
-         skolemize :: [(Quantifier, NamedSymVar)] -> [Either SW (SW, [SW])]
+         skolemize :: [(Quantifier, NamedSymVar)] -> [Either SV (SV, [SV])]
          skolemize quants = go quants ([], [])
            where go []                   (_,  sofar) = reverse sofar
                  go ((ALL, (v, _)):rest) (us, sofar) = go rest (v:us, Left v : sofar)
@@ -793,11 +821,11 @@ runProofOn rm context comments res@(Result ki _qcInfo _observables _codeSegs is 
          qinps      = if isSat then fst is else map flipQ (fst is)
          skolemMap  = skolemize qinps
 
-         o | isSafe = trueSW
+         o | isSafe = trueSV
            | True   = case outputs of
-                        []  | isSetup -> trueSW
+                        []  | isSetup -> trueSV
                         [so]          -> case so of
-                                           SW KBool _ -> so
+                                           SV KBool _ -> so
                                            _          -> error $ unlines [ "Impossible happened, non-boolean output: " ++ show so
                                                                          , "Detected while generating the trace:\n" ++ show res
                                                                          ]

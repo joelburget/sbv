@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.Control.BaseIO
--- Copyright   :  (c) Brian Schroeder, Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.Control.BaseIO
+-- Author    : Brian Schroeder, Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Monomorphized versions of functions for simplified client use via
 -- @Data.SBV.Control@, where we restrict the underlying monad to be IO.
@@ -13,14 +13,11 @@
 module Data.SBV.Control.BaseIO where
 
 import Data.SBV.Control.Query (Assignment)
-import Data.SBV.Control.Types (CheckSatResult, SMTInfoFlag, SMTInfoResponse,
-                               SMTOption, SMTReasonUnknown)
+import Data.SBV.Control.Types (CheckSatResult, SMTInfoFlag, SMTInfoResponse, SMTOption, SMTReasonUnknown)
 import Data.SBV.Control.Utils (SMTValue)
-import Data.SBV.Core.Concrete (CW)
-import Data.SBV.Core.Data     (HasKind, Symbolic, SymArray, SymWord, SBool,
-                               SBV)
-import Data.SBV.Core.Symbolic (Query, QueryContext, QueryState, State,
-                               SMTModel, SMTResult, SW)
+import Data.SBV.Core.Concrete (CV)
+import Data.SBV.Core.Data     (HasKind, Symbolic, SymArray, SymVal, SBool, SBV)
+import Data.SBV.Core.Symbolic (Query, QueryContext, QueryState, State, SMTModel, SMTResult, SV)
 
 import qualified Data.SBV.Control.Query as Trans
 import qualified Data.SBV.Control.Utils as Trans
@@ -307,7 +304,7 @@ inNewContext = Trans.inNewContext
 -- | Similar to 'freshVar', except creates unnamed variable.
 --
 -- NB. For a version which generalizes over the underlying monad, see 'Data.SBV.Trans.Control.freshVar_'
-freshVar_ :: SymWord a => Query (SBV a)
+freshVar_ :: SymVal a => Query (SBV a)
 freshVar_ = Trans.freshVar_
 
 -- | Create a fresh variable in query mode. You should prefer
@@ -319,7 +316,7 @@ freshVar_ = Trans.freshVar_
 -- most major use cases.
 --
 -- NB. For a version which generalizes over the underlying monad, see 'Data.SBV.Trans.Control.freshVar'
-freshVar :: SymWord a => String -> Query (SBV a)
+freshVar :: SymVal a => String -> Query (SBV a)
 freshVar = Trans.freshVar
 
 -- | Similar to 'freshArray', except creates unnamed array.
@@ -384,15 +381,21 @@ getUninterpretedValue = Trans.getUninterpretedValue
 -- | Get the value of a term. If the kind is Real and solver supports decimal approximations,
 -- we will "squash" the representations.
 --
--- NB. For a version which generalizes over the underlying monad, see 'Data.SBV.Trans.Control.getValueCW'
-getValueCW :: Maybe Int -> SW -> Query CW
-getValueCW = Trans.getValueCW
+-- NB. For a version which generalizes over the underlying monad, see 'Data.SBV.Trans.Control.getValueCV'
+getValueCV :: Maybe Int -> SV -> Query CV
+getValueCV = Trans.getValueCV
 
 -- | Check for satisfiability.
 --
 -- NB. For a version which generalizes over the underlying monad, see 'Data.SBV.Trans.Control.checkSat'
 checkSat :: Query CheckSatResult
 checkSat = Trans.checkSat
+
+-- | Ensure that the current context is satisfiable. If not, this function will throw an error.
+--
+-- NB. For a version which generalizes over the underlying monad, see 'Data.SBV.Trans.Control.ensureSat'
+ensureSat :: Query ()
+ensureSat = Trans.ensureSat
 
 -- | Check for satisfiability with a custom check-sat-using command.
 --

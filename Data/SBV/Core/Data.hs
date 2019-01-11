@@ -1,44 +1,46 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.Core.Data
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.Core.Data
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Internal data-structures for the sbv library
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE CPP                   #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE InstanceSigs          #-}
-{-# LANGUAGE PatternGuards         #-}
-{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE PatternGuards         #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Data.SBV.Core.Data
  ( SBool, SWord8, SWord16, SWord32, SWord64
  , SInt8, SInt16, SInt32, SInt64, SInteger, SReal, SFloat, SDouble, SChar, SString, SList
+ , STuple2, STuple3, STuple4, STuple5, STuple6, STuple7, STuple8
  , nan, infinity, sNaN, sInfinity, RoundingMode(..), SRoundingMode
  , sRoundNearestTiesToEven, sRoundNearestTiesToAway, sRoundTowardPositive, sRoundTowardNegative, sRoundTowardZero
  , sRNE, sRNA, sRTP, sRTN, sRTZ
- , SymWord(..)
- , CW(..), CWVal(..), AlgReal(..), AlgRealPoly, ExtCW(..), GeneralizedCW(..), isRegularCW, cwSameType, cwToBool
- , mkConstCW ,liftCW2, mapCW, mapCW2
- , SW(..), trueSW, falseSW, trueCW, falseCW, normCW
+ , SymVal(..)
+ , CV(..), CVal(..), AlgReal(..), AlgRealPoly, ExtCV(..), GeneralizedCV(..), isRegularCV, cvSameType, cvToBool
+ , mkConstCV ,liftCV2, mapCV, mapCV2
+ , SV(..), trueSV, falseSV, trueCV, falseCV, normCV
  , SVal(..)
  , sTrue, sFalse, sNot, (.&&), (.||), (.<+>), (.~&), (.~|), (.=>), (.<=>), sAnd, sOr, sAny, sAll, fromBool
  , SBV(..), NodeId(..), mkSymSBV
  , ArrayContext(..), ArrayInfo, SymArray(..), SFunArray(..), SArray(..)
- , sbvToSW, sbvToSymSW, forceSWArg
+ , sbvToSV, sbvToSymSV, forceSVArg
  , SBVExpr(..), newExpr
  , cache, Cached, uncache, uncacheAI, HasKind(..)
  , Op(..), PBOp(..), FPOp(..), StrOp(..), SeqOp(..), RegExp(..), NamedSymVar, getTableIndex
@@ -53,11 +55,9 @@ module Data.SBV.Core.Data
  , SMTScript(..), Solver(..), SMTSolver(..), SMTResult(..), SMTModel(..), SMTConfig(..)
  , OptimizeStyle(..), Penalty(..), Objective(..)
  , QueryState(..), QueryT(..), SMTProblem(..)
- , HList(..)
  ) where
 
 import GHC.Stack
-import Debug.Trace
 
 import GHC.Generics (Generic)
 import GHC.Exts     (IsList(..))
@@ -68,6 +68,8 @@ import Data.Int               (Int8, Int16, Int32, Int64)
 import Data.Word              (Word8, Word16, Word32, Word64)
 import Data.List              (elemIndex)
 import Data.Maybe             (fromMaybe)
+
+import Data.Proxy
 import Data.Typeable          (Typeable)
 
 import qualified Data.Generics as G    (Data(..))
@@ -161,8 +163,29 @@ type SString = SBV String
 -- Note that lists can be nested, i.e., we do allow lists of lists of ... items.
 type SList a = SBV [a]
 
+-- | Symbolic 2-tuple.
+type STuple2 a b = SBV (a, b)
+
+-- | Symbolic 3-tuple.
+type STuple3 a b c = SBV (a, b, c)
+
+-- | Symbolic 4-tuple.
+type STuple4 a b c d = SBV (a, b, c, d)
+
+-- | Symbolic 5-tuple.
+type STuple5 a b c d e = SBV (a, b, c, d, e)
+
+-- | Symbolic 6-tuple.
+type STuple6 a b c d e f = SBV (a, b, c, d, e, f)
+
+-- | Symbolic 7-tuple.
+type STuple7 a b c d e f g = SBV (a, b, c, d, e, f, g)
+
+-- | Symbolic 8-tuple.
+type STuple8 a b c d e f g h = SBV (a, b, c, d, e, f, g, h)
+
 -- | IsList instance allows list literals to be written compactly.
-instance SymWord [a] => IsList (SList a) where
+instance SymVal [a] => IsList (SList a) where
   type Item (SList a) = a
   fromList = literal
   toList x = fromMaybe (error "IsList.toList used in a symbolic context!") (unliteral x)
@@ -179,12 +202,12 @@ infinity = 1/0
 
 -- | Symbolic variant of Not-A-Number. This value will inhabit both
 -- 'SDouble' and 'SFloat'.
-sNaN :: (Floating a, SymWord a) => SBV a
+sNaN :: (Floating a, SymVal a) => SBV a
 sNaN = literal nan
 
 -- | Symbolic variant of infinity. This value will inhabit both
 -- 'SDouble' and 'SFloat'.
-sInfinity :: (Floating a, SymWord a) => SBV a
+sInfinity :: (Floating a, SymVal a) => SBV a
 sInfinity = literal infinity
 
 -- | Internal representation of a symbolic simulation result
@@ -259,7 +282,7 @@ sAll :: (a -> SBool) -> [a] -> SBool
 sAll f = sAnd . map f
 
 -- | 'RoundingMode' can be used symbolically
-instance SymWord RoundingMode
+instance SymVal RoundingMode
 
 -- | The symbolic variant of 'RoundingMode'
 type SRoundingMode = SBV RoundingMode
@@ -317,12 +340,12 @@ instance Eq (SBV a) where
   SBV a == SBV b = a == b
   SBV a /= SBV b = a /= b
 
-instance HasKind (SBV a) where
-  kindOf (SBV (SVal k _)) = k
+instance HasKind a => HasKind (SBV a) where
+  kindOf _ = kindOf (Proxy @a)
 
 -- | Convert a symbolic value to a symbolic-word
-sbvToSW :: State -> SBV a -> IO SW
-sbvToSW st (SBV s) = svToSW st s
+sbvToSV :: State -> SBV a -> IO SV
+sbvToSV st (SBV s) = svToSV st s
 
 -------------------------------------------------------------------------
 -- * Symbolic Computations
@@ -333,10 +356,10 @@ mkSymSBV :: forall a m. MonadSymbolic m => Maybe Quantifier -> Kind -> Maybe Str
 mkSymSBV mbQ k mbNm = SBV <$> (symbolicEnv >>= liftIO . svMkSymVar mbQ k mbNm)
 
 -- | Generalization of 'Data.SBV.sbvToSymSW'
-sbvToSymSW :: MonadSymbolic m => SBV a -> m SW
-sbvToSymSW sbv = do
+sbvToSymSV :: MonadSymbolic m => SBV a -> m SV
+sbvToSymSV sbv = do
         st <- symbolicEnv
-        liftIO $ sbvToSW st sbv
+        liftIO $ sbvToSV st sbv
 
 -- | Actions we can do in a context: Either at problem description
 -- time or while we are dynamically querying. 'Symbolic' and 'Query' are
@@ -407,41 +430,42 @@ instance (Outputtable a, Outputtable b, Outputtable c, Outputtable d, Outputtabl
   output = mlift8 (,,,,,,,) output output output output output output output output
 
 -------------------------------------------------------------------------------
--- * Symbolic Words
+-- * Symbolic Values
 -------------------------------------------------------------------------------
--- | A 'SymWord' is a potential symbolic bitvector that can be created instances of
--- to be fed to a symbolic program. Note that these methods are typically not needed
--- in casual uses with 'Data.SBV.prove', 'Data.SBV.sat', 'Data.SBV.allSat' etc, as
--- default instances automatically provide the necessary bits.
-class (HasKind a, Ord a, Typeable a) => SymWord a where
-  -- | Generalization of 'Data.SBV.mkSymWord'
-  mkSymWord :: MonadSymbolic m => Maybe Quantifier -> Maybe String -> m (SBV a)
+-- | A 'SymVal' is a potential symbolic value that can be created instances of to be fed to a symbolic program.
+class (HasKind a, Ord a, Typeable a) => SymVal a where
+  -- | Generalization of 'Data.SBV.mkSymVal'
+  mkSymVal :: MonadSymbolic m => Maybe Quantifier -> Maybe String -> m (SBV a)
   -- | Turn a literal constant to symbolic
   literal :: a -> SBV a
-  -- | Extract a literal, from a CW representation
-  fromCW :: HasCallStack => CW -> a
+  -- | Extract a literal, from a CV representation
+  fromCV :: HasCallStack => CV -> a
   -- | Does it concretely satisfy the given predicate?
   isConcretely :: SBV a -> (a -> Bool) -> Bool
 
   -- minimal complete definition: Nothing.
   -- Giving no instances is okay when defining an uninterpreted/enumerated sort, but otherwise you really
-  -- want to define: literal, fromCW, mkSymWord
+  -- want to define: literal, fromCV, mkSymVal
 
-  default mkSymWord :: (MonadSymbolic m, Read a, G.Data a) => Maybe Quantifier -> Maybe String -> m (SBV a)
-  mkSymWord mbQ mbNm = SBV <$> (symbolicEnv >>= liftIO . svMkSymVar mbQ k mbNm)
-    where k = constructUKind (undefined :: a)
+  default mkSymVal :: (MonadSymbolic m, Read a, G.Data a) => Maybe Quantifier -> Maybe String -> m (SBV a)
+  mkSymVal mbQ mbNm = SBV <$> (symbolicEnv >>= liftIO . svMkSymVar mbQ k mbNm)
+    where -- NB.A call of the form
+          --      constructUKind (Proxy @a)
+          -- would be wrong here, as it would uninterpret the Proxy datatype!
+          -- So, we have to use the dreaded undefined value in this case.
+          k = constructUKind (undefined :: a)
 
   default literal :: Show a => a -> SBV a
-  literal x = let k@(KUserSort  _ conts) = kindOf x
-                  sx                     = show x
+  literal x = let k@(KUninterpreted  _ conts) = kindOf x
+                  sx                          = show x
                   mbIdx = case conts of
                             Right xs -> sx `elemIndex` xs
                             _        -> Nothing
-              in SBV $ SVal k (Left (CW k (CWUserSort (mbIdx, sx))))
+              in SBV $ SVal k (Left (CV k (CUserSort (mbIdx, sx))))
 
-  default fromCW :: Read a => CW -> a
-  fromCW (CW _ (CWUserSort (_, s))) = read s
-  fromCW cw                         = error $ "Cannot convert CW " ++ show cw ++ " to kind " ++ show (kindOf (undefined :: a))
+  default fromCV :: Read a => CV -> a
+  fromCV (CV _ (CUserSort (_, s))) = read s
+  fromCV cv                        = error $ "Cannot convert CV " ++ show cv ++ " to kind " ++ show (kindOf (Proxy @a))
 
   isConcretely s p
     | Just i <- unliteral s = p i
@@ -449,11 +473,11 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
 
   -- | Generalization of 'Data.SBV.forall'
   forall :: MonadSymbolic m => String -> m (SBV a)
-  forall = mkSymWord (Just ALL) . Just
+  forall = mkSymVal (Just ALL) . Just
 
   -- | Generalization of 'Data.SBV.forall_'
   forall_ :: MonadSymbolic m => m (SBV a)
-  forall_ = mkSymWord (Just ALL) Nothing
+  forall_ = mkSymVal (Just ALL) Nothing
 
   -- | Generalization of 'Data.SBV.mkForallVars'
   mkForallVars :: MonadSymbolic m => Int -> m [SBV a]
@@ -461,11 +485,11 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
 
   -- | Generalization of 'Data.SBV.exists'
   exists :: MonadSymbolic m => String -> m (SBV a)
-  exists = mkSymWord (Just EX) . Just
+  exists = mkSymVal (Just EX) . Just
 
   -- | Generalization of 'Data.SBV.exists_'
   exists_ :: MonadSymbolic m => m (SBV a)
-  exists_ = mkSymWord (Just EX) Nothing
+  exists_ = mkSymVal (Just EX) Nothing
 
   -- | Generalization of 'Data.SBV.mkExistVars'
   mkExistVars :: MonadSymbolic m => Int -> m [SBV a]
@@ -473,11 +497,11 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
 
   -- | Generalization of 'Data.SBV.free'
   free :: MonadSymbolic m => String -> m (SBV a)
-  free = mkSymWord Nothing . Just
+  free = mkSymVal Nothing . Just
 
   -- | Generalization of 'Data.SBV.free_'
   free_ :: MonadSymbolic m => m (SBV a)
-  free_ = mkSymWord Nothing Nothing
+  free_ = mkSymVal Nothing Nothing
 
   -- | Generalization of 'Data.SBV.mkFreeVars'
   mkFreeVars :: MonadSymbolic m => Int -> m [SBV a]
@@ -493,8 +517,8 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
 
   -- | Extract a literal, if the value is concrete
   unliteral :: HasCallStack => SBV a -> Maybe a
-  unliteral (SBV (SVal _ (Left c)))  = Just $ fromCW $ trace ("unliteral (SBV (SVal _ (Left " ++ show c ++ ")))") c
-  unliteral _                        = Nothing
+  unliteral (SBV (SVal _ (Left c))) = Just $ fromCV c
+  unliteral _                       = Nothing
 
   -- | Is the symbolic word concrete?
   isConcrete :: SBV a -> Bool
@@ -505,7 +529,7 @@ class (HasKind a, Ord a, Typeable a) => SymWord a where
   isSymbolic :: SBV a -> Bool
   isSymbolic = not . isConcrete
 
-instance (Random a, SymWord a) => Random (SBV a) where
+instance (Random a, SymVal a) => Random (SBV a) where
   randomR (l, h) g = case (unliteral l, unliteral h) of
                        (Just lb, Just hb) -> let (v, g') = randomR (lb, hb) g in (literal (v :: a), g')
                        _                  -> error "SBV.Random: Cannot generate random values with symbolic bounds"
@@ -566,11 +590,11 @@ class SymArray array where
   -- | Read the array element at @a@
   readArray      :: array a b -> SBV a -> SBV b
   -- | Update the element at @a@ to be @b@
-  writeArray     :: SymWord b => array a b -> SBV a -> SBV b -> array a b
+  writeArray     :: SymVal b => array a b -> SBV a -> SBV b -> array a b
   -- | Merge two given arrays on the symbolic condition
   -- Intuitively: @mergeArrays cond a b = if cond then a else b@.
   -- Merging pushes the if-then-else choice down on to elements
-  mergeArrays    :: SymWord b => SBV Bool -> array a b -> array a b -> array a b
+  mergeArrays    :: SymVal b => SBV Bool -> array a b -> array a b -> array a b
   -- | Internal function, not exported to the user
   newArrayInState :: (HasKind a, HasKind b) => Maybe String -> Maybe (SBV b) -> State -> IO (array a b)
 
@@ -599,7 +623,7 @@ class SymArray array where
 newtype SArray a b = SArray { unSArray :: SArr }
 
 instance (HasKind a, HasKind b) => Show (SArray a b) where
-  show SArray{} = "SArray<" ++ showType (undefined :: a) ++ ":" ++ showType (undefined :: b) ++ ">"
+  show SArray{} = "SArray<" ++ showType (Proxy @a) ++ ":" ++ showType (Proxy @b) ++ ">"
 
 instance SymArray SArray where
   readArray   (SArray arr) (SBV a)               = SBV (readSArr arr a)
@@ -611,8 +635,8 @@ instance SymArray SArray where
                                      SArray <$> newSArr st (aknd, bknd) (mkNm mbNm) (unSBV <$> mbVal)
      where mkNm Nothing   t = "array_" ++ show t
            mkNm (Just nm) _ = nm
-           aknd = kindOf (undefined :: a)
-           bknd = kindOf (undefined :: b)
+           aknd = kindOf (Proxy @a)
+           bknd = kindOf (Proxy @b)
 
 -- | Arrays implemented internally, without translating to SMT-Lib functions:
 --
@@ -632,7 +656,7 @@ instance SymArray SArray where
 newtype SFunArray a b = SFunArray { unSFunArray :: SFunArr }
 
 instance (HasKind a, HasKind b) => Show (SFunArray a b) where
-  show SFunArray{} = "SFunArray<" ++ showType (undefined :: a) ++ ":" ++ showType (undefined :: b) ++ ">"
+  show SFunArray{} = "SFunArray<" ++ showType (Proxy @a) ++ ":" ++ showType (Proxy @b) ++ ">"
 
 instance SymArray SFunArray where
   readArray   (SFunArray arr) (SBV a)             = SBV (readSFunArr arr a)
@@ -644,5 +668,5 @@ instance SymArray SFunArray where
                                      SFunArray <$> newSFunArr st (aknd, bknd) (mkNm mbNm) (unSBV <$> mbVal)
     where mkNm Nothing t   = "funArray_" ++ show t
           mkNm (Just nm) _ = nm
-          aknd = kindOf (undefined :: a)
-          bknd = kindOf (undefined :: b)
+          aknd = kindOf (Proxy @a)
+          bknd = kindOf (Proxy @b)

@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  TestSuite.Uninterpreted.Sort
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : TestSuite.Uninterpreted.Sort
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- Test suite for uninterpreted sorts
 -----------------------------------------------------------------------------
@@ -25,10 +25,10 @@ tests =
     ]
 
 data L = Nil | Cons Int L deriving (Eq, Ord, Data, Read, Show)
-instance SymWord L
+instance SymVal L
 instance HasKind L
 instance SatModel L where
-  parseCWs = undefined -- make GHC shut up about the missing method, we won't actually call it
+  parseCVs = undefined -- make GHC shut up about the missing method, we won't actually call it
 
 type UList = SBV L
 

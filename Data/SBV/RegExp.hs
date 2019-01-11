@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.SBV.RegExp
--- Copyright   :  (c) Levent Erkok
--- License     :  BSD3
--- Maintainer  :  erkokl@gmail.com
--- Stability   :  experimental
+-- Module    : Data.SBV.RegExp
+-- Author    : Levent Erkok
+-- License   : BSD3
+-- Maintainer: erkokl@gmail.com
+-- Stability : experimental
 --
 -- A collection of regular-expression related utilities. The recommended
 -- workflow is to import this module qualified as the names of the functions
@@ -15,10 +15,11 @@
 -----------------------------------------------------------------------------
 
 {-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE Rank2Types           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Data.SBV.RegExp (
         -- * Regular expressions
@@ -52,6 +53,8 @@ import Data.SBV.Core.Model () -- instances only
 
 import Data.SBV.String
 import qualified Data.Char as C
+
+import Data.Proxy
 
 -- For testing only
 import Data.SBV.Char
@@ -273,18 +276,18 @@ identifier :: RegExp
 identifier = asciiLower * KStar (asciiLetter + digit + "_" + "'")
 
 -- | Lift a unary operator over strings.
-lift1 :: forall a b. (SymWord a, SymWord b) => StrOp -> Maybe (a -> b) -> SBV a -> SBV b
+lift1 :: forall a b. (SymVal a, SymVal b) => StrOp -> Maybe (a -> b) -> SBV a -> SBV b
 lift1 w mbOp a
   | Just cv <- concEval1 mbOp a
   = cv
   | True
   = SBV $ SVal k $ Right $ cache r
-  where k = kindOf (undefined :: b)
-        r st = do swa <- sbvToSW st a
-                  newExpr st k (SBVApp (StrOp w) [swa])
+  where k = kindOf (Proxy @b)
+        r st = do sva <- sbvToSV st a
+                  newExpr st k (SBVApp (StrOp w) [sva])
 
 -- | Concrete evaluation for unary ops
-concEval1 :: (SymWord a, SymWord b) => Maybe (a -> b) -> SBV a -> Maybe (SBV b)
+concEval1 :: (SymVal a, SymVal b) => Maybe (a -> b) -> SBV a -> Maybe (SBV b)
 concEval1 mbOp a = literal <$> (mbOp <*> unliteral a)
 
 -- | Quiet GHC about testing only imports
