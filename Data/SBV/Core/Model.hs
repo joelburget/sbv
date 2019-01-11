@@ -245,6 +245,7 @@ instance (Typeable xs, SymWord x, SymWord (HList xs)) => SymWord (HList (x ': xs
 
   fromCW (CW tup1@(KTuple (k:ks)) tup2@(CWTuple (x:xs))) =
     trace ("fromCW HList tup1: " ++ show tup1 ++ ", tup2: " ++ show tup2) $
+    trace ("x: " ++ show (kindOf (undefined :: x)) ++ ", xs: " ++ show (kindOf (undefined :: HList xs))) $
     fromCW (CW k x) :% fromCW (CW (KTuple ks) (CWTuple xs))
   fromCW c = error $ "SymWord.fromCW: Unexpected non-:% value: " ++ show c
 
