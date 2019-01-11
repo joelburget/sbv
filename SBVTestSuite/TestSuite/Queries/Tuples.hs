@@ -47,17 +47,18 @@ queryTuples1 = do
        then return av
        else error $ "Didn't expect this: " ++ show av
 
-queryTuples2 :: Symbolic (Integer, (Char, ()))
+queryTuples2 :: Symbolic (Integer, (String, ()))
 queryTuples2 = do
-  a <- sTuple @(Integer, (Char, ())) "a"
+  -- a <- sTuple @(Integer, (Char, ())) "a"
+  let a = literal (5, ("foo", ()))
 
-  constrain $ field1 a .== 1
+  -- constrain $ field1 a .== 1
 
   query $ do
     _ <- checkSat
 
     av <- getValue a
 
-    if fst av == 1
+    if av == (5, ("foo", ()))
        then return av
        else error $ "Didn't expect this: " ++ show av

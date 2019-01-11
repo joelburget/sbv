@@ -340,13 +340,19 @@ instance SymWord () where
   literal       = coerceTup . literal . toHList
   fromCW        = fromHList . fromCW
 
-traceLabel :: Show a => String -> a -> a
-traceLabel msg a = trace (msg ++ " " ++ show a) a
-
 instance (SymWord a, SymWord b) => SymWord (a, b) where
-  mkSymWord x y = coerceTup <$> mkSymWord x y
-  literal       = coerceTup . literal . toHList
-  fromCW        = fromHList . fromCW . traceLabel "fromCW (a, b)"
+  mkSymWord = genMkSymVar (kindOf (undefined :: (a, b)))
+  literal (a, b) = case (literal a, literal b) of
+    (SBV (SVal _ (Left (CW _ aval))), SBV (SVal _ (Left (CW _ bval)))) ->
+      let k = KTuple [kindOf a, kindOf b]
+      in SBV $ SVal k $ Left $ CW k $ CWTuple [aval, bval]
+    _ -> error "literal (a, b)"
+  fromCW (CW (KTuple [ka, kb]) (CWTuple [cwa, cwb])) =
+    (fromCW (CW ka cwa), fromCW (CW kb cwb))
+  fromCW _ = error "fromCW (a, b)"
+  -- mkSymWord x y = coerceTup <$> mkSymWord x y
+  -- literal       = coerceTup . literal . toHList
+  -- fromCW        = fromHList . fromCW . traceLabel "fromCW (a, b)"
 
 instance (SymWord a, SymWord b, SymWord c) => SymWord (a, b, c) where
   mkSymWord x y = coerceTup <$> mkSymWord x y

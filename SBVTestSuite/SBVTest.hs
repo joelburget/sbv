@@ -17,7 +17,7 @@ import Test.Tasty
 
 import Utils.SBVTestFramework (getTestEnvironment, TestEnvironment(..), CIOS(..), pickTests)
 
-import System.Exit (exitSuccess)
+-- import System.Exit (exitSuccess)
 
 import qualified TestSuite.Arrays.InitVals
 import qualified TestSuite.Arrays.Memory
@@ -125,8 +125,11 @@ main = do (testEnv, testPercentage) <- getTestEnvironment
           putStrLn $ "SBVTest: Test platform: " ++ show testEnv
 
           case testEnv of
-            TestEnvUnknown   -> do putStrLn "Unknown test environment, skipping tests"
-                                   exitSuccess
+            TestEnvUnknown   -> do -- putStrLn "Unknown test environment, skipping tests"
+                                   -- exitSuccess
+                                   defaultMain $ testGroup "tuples"
+                                     [ TestSuite.Queries.Tuples.tests
+                                     ]
 
             TestEnvLocal     -> defaultMain $ testGroup "Local" [heavyTests, localOnlyTests, otherTests]
 

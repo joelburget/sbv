@@ -5,32 +5,29 @@
 [GOOD] (set-option :smtlib2_compliant true)
 [GOOD] (set-option :diagnostic-output-channel "stdout")
 [GOOD] (set-option :produce-models true)
-[GOOD] (set-logic ALL) ; has unbounded values, using catch-all.
+[GOOD] (set-logic ALL) ; external query, using all logics.
 [GOOD] ; --- uninterpreted sorts ---
 [GOOD] ; --- tuples ---
-[GOOD] (declare-datatypes () ((tup-0 (tup-0))))
-[GOOD] (declare-datatypes (T1 T2) ((tup-2 (mk-tup-2 (proj-1 T1) (proj-2 T2)))))
 [GOOD] ; --- literal constants ---
 [GOOD] (define-fun s_2 () Bool false)
 [GOOD] (define-fun s_1 () Bool true)
-[GOOD] (define-fun s2 () Int 1)
 [GOOD] ; --- skolem constants ---
-[GOOD] (declare-fun s0 () (tup-2 Int (tup-2 (_ BitVec 8) tup-0))) ; tracks user variable "a"
 [GOOD] ; --- constant tables ---
 [GOOD] ; --- skolemized tables ---
 [GOOD] ; --- arrays ---
 [GOOD] ; --- uninterpreted constants ---
 [GOOD] ; --- user given axioms ---
 [GOOD] ; --- formula ---
-[GOOD] (define-fun s1 () Int (proj-1 s0))
-[GOOD] (define-fun s3 () Bool (= s1 s2))
-[GOOD] (assert s3)
+[GOOD] (assert s_1)
 [SEND] (check-sat)
 [RECV] sat
+[GOOD] (declare-datatypes () ((tup-0 (tup-0))))
+[GOOD] (declare-datatypes (T1 T2) ((tup-2 (mk-tup-2 (proj-1 T1) (proj-2 T2)))))
+[GOOD] (define-fun s0 () (tup-2 Int (tup-2 String tup-0)) (mk-tup-2 5 (mk-tup-2 "foo" tup-0)))
 [SEND] (get-value (s0))
-[RECV] ((s0 (mk-tup-2 1 (mk-tup-2 #x00 tup-0))))
+[RECV] ((s0 (mk-tup-2 5 (mk-tup-2 "foo" tup-0))))
 *** Solver   : Z3
 *** Exit code: ExitSuccess
 
 FINAL OUTPUT:
-(1,('\NUL',()))
+(5,("foo",()))
