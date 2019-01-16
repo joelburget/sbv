@@ -867,8 +867,8 @@ instance HasKind SVal where
 -- implicit "fromBoolean" applied to Booleans in Haskell; and thus a statement
 -- of the form "True :: SBool" is just meaningless. (There should be a fromBoolean!)
 instance Show SVal where
-  show (SVal KBool (Left c))  = showCV False c
-  show (SVal k     (Left c))  = showCV False c ++ " :: " ++ show k
+  show (SVal KBool (Left c))  = showCV True c
+  show (SVal k     (Left c))  = showCV True c ++ " :: " ++ show k
   show (SVal k     (Right _)) =         "<symbolic> :: " ++ show k
 
 -- We really don't want an 'Eq' instance for 'SBV' or 'SVal'. As it really makes no sense.
