@@ -37,6 +37,8 @@ module Data.SBV.Core.Model (
   , liftQRem, liftDMod, symbolicMergeWithKind
   , genLiteral, genFromCV, genMkSymVar
   , sbvQuickCheck
+
+  , mkCVTup, fromCVTup
   )
   where
 
